@@ -1,0 +1,50 @@
+# Book settings
+# Learn more at https://jupyterbook.org/customize/config.html
+
+title: glymphopt
+author: Jørgen Riseth
+logo: "docs/logo.png"
+copyright: "2024"
+only_build_toc_files: true
+
+# Force re-execution of notebooks on each build.
+# See https://jupyterbook.org/content/execute.html
+execute:
+  execute_notebooks: cache
+
+# Information about where the book exists on the web
+repository:
+  url: https://github.com/jorgenriseth/glymphopt # Online location of your book
+  branch: main
+
+html:
+  use_issues_button: true
+  use_repository_button: true
+
+parse:
+  myst_enable_extensions:
+    - amsmath
+    - dollarmath
+    - linkify
+
+sphinx:
+  extra_extensions:
+  - 'sphinx.ext.autodoc'
+  - 'sphinx.ext.napoleon'
+  - 'sphinx.ext.viewcode'
+  - "sphinxcontrib.bibtex"
+
+
+  config:
+    bibtex_bibfiles: ["docs/references.bib"]
+    suppress_warnings: ["bibtex.duplicate_citation"] # If the same paper is cited in multiple files
+    nb_execution_show_tb: True
+    html_theme_options:
+      navigation_with_keys: false
+    html_last_updated_fmt: "%b %d, %Y"
+    nb_custom_formats:  # https://jupyterbook.org/en/stable/file-types/jupytext.html#file-types-custom
+        .py:
+            - jupytext.reads
+            - fmt: py
+
+exclude_patterns: [".pytest_cache/*", ".github/*"]

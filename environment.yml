@@ -1,0 +1,12 @@
+name: "glymphopt"
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - jupyter-book
+  - fenics-dolfin
+  - python=3.10
+  - pip
+  - snakemake
+  pip:
+    - "git+https://github.com/jorgenriseth/pantarei"

@@ -1,0 +1,11 @@
+dictionaryDefinitions:
+  - name: glymphopt
+    path: .cspell_dict.txt
+    addWords: true
+dictionaries:
+  - glymphopt
+ignoreWords: [
+    tableofcontents,
+    ipynb,
+    oneline
+  ]
