@@ -50,7 +50,7 @@ def mri2hdf(
 if __name__ == "__main__":
     import argparse
 
-    from glymphopt.visual import data_visual
+from glymphopt.visual import data_visual
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--inputfiles", type=Path, nargs="+", required=True)

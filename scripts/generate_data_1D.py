@@ -79,6 +79,7 @@ if __name__ == "__main__":
 
     if args.sampletimes is None:
         args.sampletimes = np.linspace(0, 1, 11)
+    print(args.sampletimes)
 
     u_data = load_data_interpolator(args.input, "concentration")
     update_function = sample_from_file(u_data)

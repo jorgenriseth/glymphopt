@@ -10,6 +10,7 @@ import ufl
 from loguru import logger
 from ufl import grad, inner
 
+# import glymphopt.dfa as df
 from glymphopt.visual import data_visual
 
 
@@ -22,7 +23,6 @@ def diffusion_reaction_form(
 ) -> ufl.Form:
     u, v = df.TrialFunction(V), df.TestFunction(V)
     D, r = coefficients["D"], coefficients["r"]
-    print(D, r)
     dx = df.Measure("dx", domain=V.mesh())
     F = (u - u0) * v * dx + dt * (inner(D * grad(u), grad(v)) * dx + r * u * v * dx)
     return F + pr.process_boundary_forms(u, v, boundaries)
@@ -114,6 +114,7 @@ if __name__ == "__main__":
 
     def coefficients_update(uh, t, coefficients, boundaries):
         time.assign(t)
+        print(uh)
         for bc in [x for x in boundaries if isinstance(x, pr.DirichletBoundary)]:
             bc.uD.assign(-np.exp(-t / 0.1) + np.exp(-t / 0.5))
         return

@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Callable
 
 import dolfin as df
 import numpy as np
@@ -7,36 +6,6 @@ import pantarei as pr
 
 from glymphopt.forward import diffusion_reaction_form, solve_timedependent
 from glymphopt.visual import data_visual
-
-
-def generate_data(
-    output: Path,
-    domain: df.Mesh,
-    family: str,
-    degree: int,
-    sampletimes: list[float],
-    update_function: Callable[[df.Function, float], None],
-) -> None:
-    V = df.FunctionSpace(domain, family, degree)
-    u = df.Function(V, name="concentration")
-    with df.HDF5File(df.MPI.comm_world, str(output), "w") as hdf:
-        pr.write_domain(hdf, domain)
-        update_function(u, sampletimes[0])
-        pr.write_function(hdf, u, "concentration")
-        for ti in sampletimes[1:]:
-            update_function(u, ti)
-            pr.write_checkpoint(hdf, u, "concentration", ti)
-
-
-def sample_from_file(filepath: Path) -> Callable[[df.Function, float], None]:
-    u_data = load_data_interpolator(filepath, "concentration")
-
-    def call(u: df.Function, t: float) -> None:
-        u.assign(u_data.update(t))
-        return
-
-    return call
-
 
 if __name__ == "__main__":
     import argparse
@@ -46,10 +15,12 @@ if __name__ == "__main__":
     parser.add_argument("--resolution", type=int, required=True)
     parser.add_argument("--D", type=float, default=2.4)
     parser.add_argument("--r", type=float, default=0.0)
+    parser.add_argument("--dt", type=float, default=0.01)
+    parser.add_argument("--endtime", type=float, default=1.0)
     parser.add_argument("--visual", action="store_true")
     args = parser.parse_args()
 
-    time = pr.TimeKeeper(dt=0.01, endtime=1.0)
+    time = pr.TimeKeeper(dt=args.dt, endtime=args.endtime)
     coefficients = {"D": args.D, "r": args.r}
 
     domain = pr.MMSInterval(args.resolution)
@@ -80,5 +51,5 @@ if __name__ == "__main__":
     if args.visual:
         import matplotlib.pyplot as plt
 
-        data_visual(args.output, "concentration")
+        data_visual(args.output, "concentration", N_plots=20)
         plt.show()

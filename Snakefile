@@ -1,10 +1,16 @@
+RESOLUTION_SIM = 1024
+RESOLUTION_MRI = 64
+RESOLUTION_MESH = 31
+
 rule simulate_data:
     output:
         "data/sim.hdf"
+    params:
+        resolution = RESOLUTION_SIM
     shell:
         "python scripts/simulate_data.py"
         " --output {output}"
-        " --resolution 512"
+        " --resolution {params.resolution}"
 
 NUM_SAMPLES = 5
 MEASURE_TIMES = [idx / NUM_SAMPLES for idx in range(NUM_SAMPLES+1)]
@@ -34,7 +40,7 @@ rule measure_data:
         concentrations = CONCENTRATIONS,
         timestamps = "data/timestamps.txt"
     params:
-        resolution = 256
+        resolution = RESOLUTION_MRI
     shell:
         "python scripts/measure.py"
         " --infile {input}"
@@ -49,7 +55,7 @@ rule mri2fenics:
     output:
         "data/data.hdf"
     params: 
-        resolution = 100
+        resolution = RESOLUTION_MESH
     shell:
         "python scripts/mri2fem.py"
         " --inputfiles {input.data}"
@@ -57,4 +63,12 @@ rule mri2fenics:
         " --output {output}"
         " --resolution {params.resolution}"
 
-        
+
+rule inverse_diffusion_coefficient:
+    input:
+        "data/data.hdf",
+    output:
+        "results/optimal.hdf"
+    shell:
+        "python scripts/optimal_diffusion_coefficient.py"
+        " --input {input}"
