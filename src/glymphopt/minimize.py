@@ -1,40 +1,4 @@
 import numpy as np
-from scipy.optimize import line_search
-from scipy.sparse.linalg import cg, LinearOperator
-
-
-def projected_newton_cg(fun, jac, hessp, bounds, x0, max_iter=100, tol=1e-6):
-    x = np.copy(x0)
-    lb, ub = bounds.lb, bounds.ub
-
-    for i in range(max_iter):
-        g = jac(x)
-        H_op = LinearOperator((len(x), len(x)), matvec=lambda p: hessp(x, p))
-        d, _ = cg(H_op, -g)
-
-        # Perform a line search
-        alpha, _, _, _, _, _ = line_search(fun, jac, x, d)
-
-        if alpha is None:
-            # Fallback to a gradient descent step if line search fails
-            alpha = 1.0
-            while fun(np.clip(x - alpha * g, lb, ub)) > fun(x):
-                alpha /= 2.0
-            x_new = np.clip(x - alpha * g, lb, ub)
-        else:
-            # Project the new point
-            x_new = np.clip(x + alpha * d, lb, ub)
-
-        # Check for convergence
-        if np.linalg.norm(x_new - x) < tol:
-            break
-
-        x = x_new
-
-    return x
-
-
-import numpy as np
 from scipy.sparse.linalg import cg, LinearOperator
 from scipy.optimize import OptimizeResult
 

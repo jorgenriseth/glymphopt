@@ -2,10 +2,10 @@ import numpy as np
 
 
 def gradient_finite_differences(F, x, h, **kwargs):
+    dx = h * x
     return np.array(
         [
-            (F(x + (h * x[i]) * ei, **kwargs) - F(x - (h * x[i]) * ei, **kwargs))
-            / (2 * (h * x[i]))
+            (F(x + dx[i] * ei, **kwargs) - F(x - dx[i] * ei, **kwargs)) / (2 * dx[i])
             for i, ei in enumerate(np.eye(len(x)))
         ]
     )

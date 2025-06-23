@@ -1,24 +1,22 @@
 import numpy as np
 import dolfin as df
-import tqdm.notebook as tqdm
+import tqdm
 import pantarei as pr
 from dolfin import inner, grad, dot
 
-from threecomp.timestepper import TimeStepper
-
-from threecomp.parameters import parameters_2d_default
-from threecomp.interpolation import measure
-from threecomp.datagen import BoundaryConcentration
+from glymphopt.datageneration import BoundaryConcentration
+from glymphopt.measure import measure
+from glymphopt.parameters import parameters_2d_default
+from glymphopt.timestepper import TimeStepper
 
 
 def generate_data(domain_path, outputdir):
-    acquisition_times = np.array([0.0, 4.8, 26.3, 48.3, 70.9])
+    acquisition_times = np.array([0.0, 4.81, 26.34, 48.32, 70.91])
 
     dt = 0.1
     endtime = np.ceil(acquisition_times)[-1]
 
     timestepper = TimeStepper(dt, (0.0, endtime))
-    print(timestepper.dt, timestepper.num_intervals())
     timepoints = timestepper.vector()
 
     with df.HDF5File(df.MPI.comm_world, str(domain_path), "r") as hdf:
@@ -71,6 +69,7 @@ def generate_data(domain_path, outputdir):
     xdmf_boundary.close()
     xdmf_internal.close()
 
+    print(timestepper, acquisition_times)
     Ym = measure(timestepper, Y, acquisition_times)
 
     xdmf_measured = df.XDMFFile(
