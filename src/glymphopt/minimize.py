@@ -168,6 +168,8 @@ def projected_newton_solver(
         # due to the careful `alpha_max` calculation.
         x = np.clip(x, lb, ub)
 
+        print(f"{i}\t{x}\t{f_val}\t{g}\t{alpha}")
+
     results = OptimizeResult(
         x=x,
         success=False,
