@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from scipy.sparse.linalg import cg, LinearOperator
 from scipy.optimize import OptimizeResult
@@ -27,6 +28,7 @@ def projected_newton_solver(
     Returns:
         OptimizeResult: An object containing the optimization results.
     """
+    tic = time.time()
     # --- Step 0: Initialization ---
     x = np.clip(x0, bounds.lb, bounds.ub)  # Ensure initial guess is feasible
     lb, ub = bounds.lb, bounds.ub
@@ -67,6 +69,7 @@ def projected_newton_solver(
                 fun=f_val,
                 jac=g,
                 message="Convergence: Projected gradient norm below tolerance.",
+                walltime=time.time() - tic,
             )
 
         # --- Step 2: Identify Active and Inactive Sets ---
@@ -156,6 +159,7 @@ def projected_newton_solver(
                     fun=f_val,
                     jac=g,
                     message="Stalled: Line search failed to find a suitable step.",
+                    walltime=time.time() - tic,
                 )
 
         # --- Step 5: Update Iterate ---
@@ -164,7 +168,7 @@ def projected_newton_solver(
         # due to the careful `alpha_max` calculation.
         x = np.clip(x, lb, ub)
 
-    return OptimizeResult(
+    results = OptimizeResult(
         x=x,
         success=False,
         nit=max_iter,
@@ -175,3 +179,5 @@ def projected_newton_solver(
         jac=jac(x),
         message="Maximum number of iterations reached.",
     )
+    results.walltime = time.time() - tic
+    return results
