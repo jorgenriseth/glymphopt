@@ -37,8 +37,8 @@ def projected_newton_solver(
     nfev, njev, nhev = 0, 0, 0
 
     if verbose:
-        print(f"{'Iter':>4} {'Objective':>13} {'Proj. Grad Norm':>18}")
-        print("-" * 40)
+        print(f"{'Iter':>4} {'x':>30} {'Objective':>13} {'Proj. Grad Norm':>18}")
+        print("-" * 70)
 
     for i in range(max_iter):
         # --- Step 1: Check for Convergence ---
@@ -56,7 +56,8 @@ def projected_newton_solver(
         projected_grad_norm = np.linalg.norm(projected_gradient)
 
         if verbose:
-            print(f"{i:4d} {f_val:13.6e} {projected_grad_norm:18.6e}")
+            x_str = np.array2string(x, formatter={"float_kind": lambda x: f"{x:.2e}"})
+            print(f"{i:4d} {x_str:>30} {f_val:13.6e} {projected_grad_norm:18.6e}")
 
         if projected_grad_norm < tol:
             return OptimizeResult(
@@ -167,8 +168,6 @@ def projected_newton_solver(
         # A final clip for numerical safety, though theoretically not needed
         # due to the careful `alpha_max` calculation.
         x = np.clip(x, lb, ub)
-
-        print(f"{i}\t{x}\t{f_val}\t{g}\t{alpha}")
 
     results = OptimizeResult(
         x=x,
