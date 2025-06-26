@@ -56,7 +56,7 @@ def projected_newton_solver(
         projected_grad_norm = np.linalg.norm(projected_gradient)
 
         if verbose:
-            x_str = np.array2string(x, formatter={"float_kind": lambda x: f"{x:.2e}"})
+            x_str = np.array2string(x, formatter={"float_kind": lambda x: f"{x:.3e}"})
             print(f"{i:4d} {x_str:>30} {f_val:13.6e} {projected_grad_norm:18.6e}")
 
         if projected_grad_norm < tol:
@@ -142,6 +142,7 @@ def projected_newton_solver(
         if g_dot_d >= 0:
             # The Newton direction is not a descent direction.
             # Fall back to a projected gradient descent step.
+            print("Falling back to projected gradient.")
             d = -projected_gradient
             g_dot_d = np.dot(g, d)
             alpha = 1.0  # Reset alpha for gradient step
@@ -150,6 +151,7 @@ def projected_newton_solver(
             alpha /= 2.0
             nfev += 1
             if alpha < 1e-8:
+                print(f"{f_val:10.4e} {c:10.4e} {g_dot_d:10.4e}")
                 return OptimizeResult(
                     x=x,
                     success=False,
@@ -179,6 +181,225 @@ def projected_newton_solver(
         fun=fun(x),
         jac=jac(x),
         message="Maximum number of iterations reached.",
+        walltime=time.time() - tic,
     )
-    results.walltime = time.time() - tic
     return results
+
+
+def solve_trust_region_subproblem_projected_cg(x, g, hessp, bounds, delta):
+    """
+    Solves the trust-region subproblem with box constraints using a
+    Projected Conjugate Gradient (Steihaug-Toint) method.
+
+    This function finds an approximate solution p to:
+        min m(p) = g^T p + 0.5 * p^T H p
+        s.t. ||p|| <= delta
+             lb <= x + p <= ub
+    """
+    p = np.zeros_like(x)
+    r = g
+    d = -r
+
+    # Precompute bounds on the step p
+    p_lb = bounds.lb - x
+    p_ub = bounds.ub - x
+
+    # Failsafe for max iterations
+    for j in range(len(x)):
+        # Curvature test
+        H_d = hessp(x, d)
+        d_H_d = np.dot(d, H_d)
+
+        if d_H_d <= 0:
+            # Negative curvature detected. Find intersection with trust region and box bounds.
+            # This requires solving a quadratic equation for the trust region boundary
+            # and linear equations for the box boundaries.
+            # For simplicity, we can just step to the trust-region boundary here.
+            a = np.dot(d, d)
+            b = 2 * np.dot(p, d)
+            c = np.dot(p, p) - delta**2
+            tau = (-b + np.sqrt(b**2 - 4 * a * c)) / (2 * a)
+            p = p + tau * d
+            return p, H_d  # Return p and the last H*d
+
+        alpha = np.dot(r, r) / d_H_d
+        p_new = p + alpha * d
+
+        # Check against trust region boundary
+        if np.linalg.norm(p_new) > delta:
+            a = np.dot(d, d)
+            b = 2 * np.dot(p, d)
+            c = np.dot(p, p) - delta**2
+            tau = (-b + np.sqrt(b**2 - 4 * a * c)) / (2 * a)
+            p = p + tau * d
+            return p, None  # H_d is not computed for this final p
+
+        # Check against box bounds
+        if np.any(p_new < p_lb) or np.any(p_new > p_ub):
+            # Find largest step `beta` along `d` that is feasible
+            with np.errstate(divide="ignore"):
+                betas = np.where(d > 0, (p_ub - p) / d, (p_lb - p) / d)
+            beta = np.min(betas[betas > 0])
+            p = p + beta * d
+            return p, None
+
+        p = p_new
+        r_new = r + alpha * H_d
+
+        if np.linalg.norm(r_new) < 1e-9:
+            return p, None  # Converged
+
+        beta = np.dot(r_new, r_new) / np.dot(r, r)
+        r = r_new
+        d = -r + beta * d
+
+    return p, None
+
+
+def custom_trust_region_solver(fun, jac, hessp, bounds, x0, tol=1e-6, max_iter=100):
+    x = np.clip(x0, bounds.lb, bounds.ub)
+    delta = 1.0  # Initial trust radius
+    eta1, eta2 = 0.1, 0.75
+
+    # Counters
+    nfev, njev, nhev = 0, 0, 0
+
+    for i in range(max_iter):
+        g = jac(x)
+        njev += 1
+
+        # --- Solve Subproblem ---
+        # Note: hessp is called inside the subproblem solver
+        p, H_p = solve_trust_region_subproblem_projected_cg(x, g, hessp, bounds, delta)
+        nhev += 1  # Approximation
+
+        # --- Calculate rho ---
+        f_old = fun(x)
+        nfev += 1
+
+        # Predicted reduction
+        if H_p is None:
+            H_p = hessp(x, p)  # Recompute if needed
+        pred = -(np.dot(g, p) + 0.5 * np.dot(p, H_p))
+
+        # If pred is very small, we might be done
+        if pred < 1e-12:
+            return OptimizeResult(
+                x=x,
+                success=True,
+                nit=i,
+                nfev=nfev,
+                njev=njev,
+                nhev=nhev,
+                fun=f_old,
+                jac=g,
+                message="Predicted reduction is negligible. Converged.",
+            )
+
+        f_new = fun(x + p)
+        nfev += 1
+        ared = f_old - f_new
+        rho = ared / pred
+
+        # --- Update Step and Radius ---
+        if rho < eta1 / 4.0:  # Very bad step
+            delta /= 4.0
+        elif rho < eta1:  # Bad step
+            delta /= 2.0
+        elif (
+            rho > eta2 and np.abs(np.linalg.norm(p) - delta) < 1e-6
+        ):  # Very good step on boundary
+            delta *= 2.0
+
+        if rho > eta1:
+            x = np.clip(x + p, bounds.lb, bounds.ub)  # Accept step
+
+        if np.linalg.norm(g) < tol and pred < tol:
+            return OptimizeResult(
+                x=x,
+                success=True,
+                nit=i,
+                nfev=nfev,
+                njev=njev,
+                nhev=nhev,
+                fun=f_new,
+                jac=jac(x),
+                message="Convergence criteria met.",
+            )
+
+    return OptimizeResult(
+        x=x,
+        success=False,
+        nit=i,
+        nfev=nfev,
+        njev=njev,
+        nhev=nhev,
+        fun=fun(x),
+        jac=jac(x),
+        message="Maximum number of iterations reached.",
+    )
+
+
+def projected_gradient_descent(
+    func,
+    grad,
+    bounds,
+    x0,
+    tol=1e-6,
+    max_iter=1000,
+    ls_alpha=0.5,
+    ls_beta=0.5,
+    ls_max_iter=20,
+):
+    """
+    Solves a bound-constrained minimization problem using projected gradient descent
+    with a backtracking line search.
+
+    Args:
+        func: The objective function to minimize.
+        grad: The gradient of the objective function.
+        bounds: A tuple of two numpy arrays, (lower_bounds, upper_bounds).
+        x0: The initial guess.
+        tol: The tolerance for the stopping criterion.
+        max_iter: The maximum number of iterations.
+        ls_alpha: The initial step size for the line search.
+        ls_beta: The backtracking factor for the line search.
+        ls_max_iter: The maximum number of iterations for the line search.
+
+    Returns:
+        The optimal solution found.
+    """
+    x = np.copy(x0)
+    lower_bounds, upper_bounds = bounds
+
+    for i in range(max_iter):
+        gradient = grad(x)
+        alpha = ls_alpha  # Reset step size at each iteration
+
+        # Backtracking line search
+        for _ in range(ls_max_iter):
+            x_new = x - alpha * gradient
+            x_new = np.clip(x_new, lower_bounds, upper_bounds)
+
+            # Check Armijo condition
+            fcall = func(x)
+            if func(x_new) <= fcall - 0.0001 * alpha * np.dot(gradient, gradient):
+                break
+            alpha *= ls_beta
+        else:
+            # Line search failed to find a suitable step size
+            print("Line search failed. Using a small fixed step size.")
+            alpha = 1e-5
+            x_new = x - alpha * gradient
+            x_new = np.clip(x_new, lower_bounds, upper_bounds)
+
+        # Check for convergence
+        if np.linalg.norm(x_new - x) < tol:
+            print(f"Converged after {i + 1} iterations.")
+            return x_new
+
+        x = x_new
+        print(x, gradient, alpha, np.linalg.norm(gradient))
+
+    print("Maximum number of iterations reached.")
+    return x
