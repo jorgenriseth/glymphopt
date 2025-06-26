@@ -19,15 +19,15 @@ class Weibull(df.Expression):
 
 
 class BoundaryConcentration(UpdatableFunction):
-    def __init__(self, V):
+    def __init__(self, V, timescale=1.0):
         super().__init__(V, name="boundary_concentration")
         domain = V.mesh()
         assert hasattr(domain, "subdomains"), (
             "Mesh should have a 'subdomains' attribute"
         )
 
-        c_ventricles = Weibull(2, 2, 10, degree=1)
-        c_sas = Weibull(1.3, 2, 24, degree=1)
+        c_ventricles = Weibull(2, 2, 10 * timescale, degree=1)
+        c_sas = Weibull(1.3, 2, 24 * timescale, degree=1)
         self.expressions = {
             2: c_sas,
             4: c_ventricles,
