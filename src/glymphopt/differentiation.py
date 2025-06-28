@@ -1,6 +1,10 @@
 import numpy as np
 
 
+def gradient_sensitivities(F, x, **kwargs):
+    return np.array([F(x, ei, **kwargs) for ei in np.eye(len(x))])
+
+
 def gradient_finite_differences(F, x, h, **kwargs):
     dx = h * x
     return np.array(

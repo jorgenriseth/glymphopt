@@ -1,6 +1,6 @@
 import dolfin as df
 
-from threecomp.operators import UpdatableExpression, UpdatableFunction
+from gripmodels.operators import UpdatableExpression, UpdatableFunction
 
 
 class Weibull(df.Expression):

@@ -2,6 +2,7 @@ import dolfin as df
 import numpy as np
 
 from glymphopt.timestepper import TimeStepper
+from glymphopt.operators import mass_matrix, bilinear_operator
 
 
 def measure_interval(n: int, td: np.ndarray, timestepper: TimeStepper):
@@ -27,3 +28,29 @@ def measure(
         # step_fraction = (ti - time[ni]) / dt
         # Y[i].assign(((1 - step_fraction) * states[ni] + step_fraction * states[ni + 1]))
     return Y
+
+
+class LossFunction:
+    def __init__(self, td, Yd):
+        self.td = td
+        self.Yd = Yd
+        self.V = Yd[0].function_space()
+        self.M = mass_matrix(self.V)
+        self._M_ = bilinear_operator(self.M)
+        self.norms = [self._M_(yi.vector(), yi.vector()) for yi in Yd]
+
+    def __call__(self, Ym):
+        timepoint_errors = [
+            self._M_(Ym_i.vector() - Yd_i.vector(), Ym_i.vector() - Yd_i.vector())
+            / norm_i
+            for Ym_i, Yd_i, norm_i in zip(Ym[1:], self.Yd[1:], self.norms[1:])
+        ]
+        return 0.5 * sum(timepoint_errors)
+
+    def measure(self, timesteps, Y, td, measure_op):
+        Y = [df.Function(self.V, name="measured_state") for _ in range(len(td))]
+        find_intervals = timesteps.find_intervals(self.td)
+        for i, _ in enumerate(td[1:], start=1):
+            ni = find_intervals[i]
+            Y[i].assign(measure_op(Y[ni + 1]))
+        return Y

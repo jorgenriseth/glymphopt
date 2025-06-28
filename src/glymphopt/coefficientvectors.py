@@ -6,6 +6,9 @@ class CoefficientVector:
         self.coefficients = default_coefficients
         self.vars = variable_coefficients
 
+    def dict(self):
+        return {**self.coefficients}
+
     def to_vector(self, **kwargs):
         coefficients = self.coefficients | kwargs
         return np.array([coefficients[key] for key in self.vars])

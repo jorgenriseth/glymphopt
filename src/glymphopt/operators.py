@@ -2,7 +2,7 @@ import abc
 from typing import Optional, Self
 
 import dolfin as df
-from dolfin import inner, grad
+from dolfin import inner, grad, dot
 
 
 def mass_matrix(V: df.FunctionSpace, dx: Optional[df.Measure] = None):
@@ -47,6 +47,49 @@ def bilinear_operator(M: df.cpp.la.Matrix):
         return Ax.inner(y)
 
     return call
+
+
+def mass_matrices(W, dx=None):
+    dx = dx or df.Measure("dx", W.mesh())
+    ce, cp = df.TrialFunctions(W)
+    ve, vp = df.TestFunctions(W)
+    Me = df.assemble(ce * ve * dx)
+    Mp = df.assemble(cp * vp * dx)
+    return Me, Mp
+
+
+def boundary_mass_matrices(W, ds=None):
+    ds = ds or df.Measure("ds", W.mesh())
+    ce, cp = df.TrialFunctions(W)
+    ve, vp = df.TestFunctions(W)
+    Be = df.assemble(ce * ve * ds)
+    Bp = df.assemble(cp * vp * ds)
+    return Be, Bp
+
+
+def diffusion_operator_matrices(D, W, dx=None):
+    dx = dx or df.Measure("dx", W.mesh())
+    ce, cp = df.TrialFunctions(W)
+    ve, vp = df.TestFunctions(W)
+    DKe = df.assemble(inner(dot(D, grad(ce)), grad(ve)) * dx)
+    DKp = df.assemble(inner(dot(D, grad(cp)), grad(vp)) * dx)
+    return DKe, DKp
+
+
+def transfer_matrix(W, dx=None):
+    dx = dx or df.Measure("dx", W.mesh())
+    ce, cp = df.TrialFunctions(W)
+    ve, vp = df.TestFunctions(W)
+    T = df.assemble(inner(ce - cp, ve - vp) * dx)
+    return T
+
+
+def reaction_matrix(W, dx=None):
+    dx = dx or df.Measure("dx", W.mesh())
+    _, cp = df.TrialFunctions(W)
+    _, vp = df.TestFunctions(W)
+    R = df.assemble(inner(cp, vp) * dx)
+    return R
 
 
 class UpdatableCoefficient(abc.ABC):
