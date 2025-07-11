@@ -1,5 +1,5 @@
 [project]
-authors = [{name = "Jørgen Riseth", email = "jnriseth@gmail.com"}]
+authors = [{ name = "Jørgen Riseth", email = "jnriseth@gmail.com" }]
 dependencies = []
 name = "glymphopt"
 requires-python = ">= 3.11"
@@ -10,10 +10,36 @@ build-backend = "hatchling.build"
 requires = ["hatchling"]
 
 [tool.pixi.workspace]
-channels = ["conda-forge"]
+channels = [
+  "conda-forge",
+  "jorgenriseth",
+  "conda-forge/label/fenics-dev",
+  "bioconda",
+  "https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public",
+]
 platforms = ["linux-64"]
 
 [tool.pixi.pypi-dependencies]
 glymphopt = { path = ".", editable = true }
 
 [tool.pixi.tasks]
+
+[tool.pixi.dependencies]
+snakemake = ">=8"
+svmtk = "*"
+fenics = "*"
+dcm2niix = "*"
+numpy = "*"
+matplotlib = "*"
+scipy = "*"
+scikit-image = "*"
+jupyter = "*"
+panta-rhei = "*"
+mpi4py = "*"
+openmpi = "*"
+snakemake-executor-plugin-cluster-generic = "*"
+pyvista = "*"
+trame = "*"
+tqdm = "*"
+loguru = "*"
+meshio = "*"

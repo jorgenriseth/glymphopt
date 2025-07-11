@@ -1,12 +1,10 @@
-import json
-
 import click
 import numpy as np
 import dolfin as df
 import tqdm
-import scipy
+import pandas as pd
 
-from dolfin import inner, grad, dot
+from dolfin import inner, grad
 
 
 from glymphopt.cache import CacheObject, cache_fetch
@@ -21,10 +19,7 @@ from glymphopt.operators import (
     bilinear_operator,
     matmul,
 )
-from glymphopt.parameters import (
-    parameters_2d_default,
-)
-from glymphopt.scale import create_reduced_problem
+from glymphopt.minimize import adaptive_grid_search
 from glymphopt.timestepper import TimeStepper
 
 
@@ -35,13 +30,6 @@ def main(input, output):
     domain = read_mesh(input)
     td, Yd = read_function_data(input, domain, "concentration")
     td, Y_bdry = read_function_data(input, domain, "boundary_concentration")
-    coefficients = parameters_2d_default()
-    coeffconverter = CoefficientVector(coefficients, ("a", "r", "k"))
-
-    D = read_augmented_dti(input)
-    D.vector()[:] *= coefficients["rho"]
-
-    g = LinearDataInterpolator(td, Y_bdry, valuescale=1.0)
     coefficients = {
         "a": 2.0,
         "phi": 0.22,
@@ -50,152 +38,34 @@ def main(input, output):
         "rho": 0.123,
         "eta": 0.4,
     }
-    coeffconverter = CoefficientVector(coefficients, ("a", "r", "k", "eta"))
+
+    D = read_augmented_dti(input)
+    D.vector()[:] *= coefficients["rho"]
+
+    g = LinearDataInterpolator(td, Y_bdry, valuescale=1.0)
+
+    coeffconverter = CoefficientVector(coefficients, ("a", "r"))
     problem = InverseProblem(input, coeffconverter, g=g, D=D, progress=True)
-
-    # results = direct_scaled_minimizer(problem)
-    results = iterative_subproblem_optimization(problem, coeffconverter)
-    with open(output, "w") as f:
-        f.write(json.dumps(results, indent=2))
-
-
-def print_callback(intermediate_result):
-    print("-" * 60)
-    print(intermediate_result)
-
-
-def direct_scaled_minimizer(problem):
-    a_ref = 1.0
-    r_ref = 1e-6
-    k_ref = 1e-2
-    eta_ref = 1.0
-
-    a0 = 1.0
-    r0 = 0.0
-    k0 = 1e-2
-    eta0 = 0.4
-
-    scaled_problem = create_reduced_problem(
-        problem, np.array([a_ref, r_ref, k_ref, eta_ref]), [0, 1, 2, 3]
+    best, hist, full_hist = adaptive_grid_search(
+        func=problem.F,
+        lower_bounds=[0.1, 0.0],
+        upper_bounds=[10.0, 1e-5],
+        n_points_per_dim=5,
+        n_iterations=10,
     )
-    scaled_bounds = scipy.optimize.Bounds(
-        [0.1, 0.0, 0.0, 0.05], [10.0, 100.0, 100.0, 1.0]
-    )
-    y0 = np.array([a0, r0, k0, eta0])
-    scaled_problem.problem.silent = True
-    scaled_solution = scipy.optimize.minimize(
-        scaled_problem.F,
-        x0=y0,
-        method="L-BFGS-B",
-        jac=scaled_problem.gradF,
-        bounds=scaled_bounds,
-        callback=print_callback,
-    )
-    print(scaled_solution)
-    results_dict = {
-        "fun": scaled_solution.fun,
-        "x": scaled_problem.transform(scaled_solution.x).tolist(),
-        "success": scaled_solution.success,
+    records = [parse_evaluation(pointeval, coeffconverter) for pointeval in full_hist]
+    data = pd.DataFrame.from_records(records)
+    data.to_csv(output, sep=";", index=False)
+
+
+def parse_evaluation(evaluation, coeffconverter):
+    return {
+        **{
+            key: evaluation
+            for key, evaluation in zip(coeffconverter.vars, evaluation["point"])
+        },
+        "funceval": evaluation["value"],
     }
-    return results_dict
-
-
-def iterative_subproblem_optimization(problem, coeffconverter):
-    print("Solving eta only minimization problem.")
-    a_ref = 1.0
-    r_ref = 1e-6
-    k_ref = 1e-2
-    eta_ref = 1.0
-
-    # After scaling
-    a0 = 1.0
-    r0 = 0.0
-    k0 = 1e-1
-    eta0 = 0.4
-
-    eta_problem = create_reduced_problem(problem, np.array([a0, r0, k0, eta_ref]), [3])
-    eta_bounds = scipy.optimize.Bounds([0.05], [1.0])
-    y0 = np.array([eta0])
-    eta_problem.problem.silent = True
-    sol_eta = scipy.optimize.minimize(
-        eta_problem.F,
-        x0=y0,
-        method="L-BFGS-B",
-        jac=eta_problem.gradF,
-        bounds=eta_bounds,
-        callback=print_callback,
-    )
-    print(sol_eta)
-    print(f"Min x: {sol_eta.x}")
-    print("-" * 60)
-    diffusion_problem = create_reduced_problem(
-        problem, np.array([a_ref, r0, k0, eta_ref]), [0, 3]
-    )
-    diffusion_bounds = scipy.optimize.Bounds([0.1, 0.05], [10.0, 1.0])
-    y0 = np.array([a0, *sol_eta.x])
-    diffusion_problem.problem.silent = True
-    sol_diffusion = scipy.optimize.minimize(
-        diffusion_problem.F,
-        x0=y0,
-        method="L-BFGS-B",
-        jac=diffusion_problem.gradF,
-        hess=diffusion_problem.hess,
-        bounds=diffusion_bounds,
-        callback=print_callback,
-    )
-    print(sol_diffusion)
-    print(sol_diffusion.x)
-
-    print("-" * 60)
-    diffusion_conductivity_problem = create_reduced_problem(
-        problem, np.array([a_ref, r0, k_ref, eta_ref]), [0, 2, 3]
-    )
-    diffusion_conductivity_bounds = scipy.optimize.Bounds(
-        [0.1, 0.0, 0.05], [10.0, 100.0, 1.0]
-    )
-    y0 = np.array([sol_diffusion.x[0], k0, sol_diffusion.x[1]])
-    diffusion_conductivity_problem.problem.silent = True
-    sol_diffusion_conductivity = scipy.optimize.minimize(
-        diffusion_conductivity_problem.F,
-        x0=y0,
-        method="L-BFGS-B",
-        jac=diffusion_conductivity_problem.gradF,
-        hess=diffusion_conductivity_problem.hess,
-        bounds=diffusion_conductivity_bounds,
-        callback=print_callback,
-    )
-    print(sol_diffusion_conductivity)
-
-    scaled_problem = create_reduced_problem(
-        problem, np.array([a_ref, r_ref, k_ref, eta_ref]), [0, 1, 2, 3]
-    )
-    scaled_bounds = scipy.optimize.Bounds(
-        [0.1, 0.0, 0.0, 0.05], [10.0, 100.0, 100.0, 1.0]
-    )
-    y0 = np.array(
-        [
-            sol_diffusion_conductivity.x[0],  # a
-            r0,
-            sol_diffusion_conductivity.x[1],  # k
-            sol_diffusion_conductivity.x[2],  # eta
-        ]
-    )
-    scaled_problem.problem.silent = True
-    scaled_solution = scipy.optimize.minimize(
-        scaled_problem.F,
-        x0=y0,
-        method="L-BFGS-B",
-        jac=scaled_problem.gradF,
-        bounds=scaled_bounds,
-        callback=print_callback,
-    )
-    print(scaled_solution)
-    results_dict = {
-        "fun": scaled_solution.fun,
-        "x": scaled_problem.transform(scaled_solution.x).tolist(),
-        "success": scaled_solution.success,
-    }
-    return results_dict
 
 
 class Model:
@@ -208,7 +78,7 @@ class Model:
 
         u, v = df.TrialFunction(V), df.TestFunction(V)
         self.M = df.assemble(inner(u, v) * dx)
-        self.DK = df.assemble(inner(dot(D, grad(u)), grad(v)) * dx)
+        self.DK = df.assemble(inner(D * grad(u), grad(v)) * dx)
         self.S = df.assemble(inner(u, v) * ds)
         self.g = g or BoundaryConcentration(V)
 
@@ -357,7 +227,7 @@ class InverseProblem:
             nj = measure_interval(n, self.td, self.timestepper)
             jump = sum(
                 (
-                    matmul(M, (Ym[j].vector() - self.Yd[j].vector()) / self.Yd_norms[j])
+                    matmul(M, (Ym[j].vector() - Yd[j].vector()) / self.Yd_norms[j])
                     for j in nj
                 )
             )

@@ -1,7 +1,187 @@
+import itertools
 import time
+
 import numpy as np
 from scipy.sparse.linalg import cg, LinearOperator
 from scipy.optimize import OptimizeResult
+
+
+def adaptive_grid_search(
+    func,
+    lower_bounds,
+    upper_bounds,
+    axis_transforms=None,
+    n_points_per_dim=5,
+    n_iterations=4,
+):
+    """
+    Performs an adaptive grid search with historical expansion, optional axis
+    transformations, and returns a complete history of all function evaluations.
+
+    Args:
+        func (callable): The function to minimize. Accepts a single NumPy array point.
+        lower_bounds (list or np.ndarray): Absolute lower bounds for the search.
+        upper_bounds (list or np.ndarray): Absolute upper bounds for the search.
+        axis_transforms (list, optional): A list of tuples, one for each dimension.
+            Each tuple should be (forward_transform, inverse_transform).
+            For a linear axis, use None.
+            Example: [(np.log10, lambda x: 10**x), None] for a log-10 scale
+            on the first axis and a linear scale on the second. Defaults to None.
+        n_points_per_dim (int, optional): Points to sample per dimension. Defaults to 5.
+        n_iterations (int, optional): Refinement iterations. Defaults to 4.
+
+    Returns:
+        tuple: A tuple containing three items:
+            - dict: The best result found, including 'point' and 'value'.
+            - list: A history of the best result from each iteration.
+            - list: A complete log of every function evaluation, where each
+                    entry is a dict {'point': array, 'value': float}.
+    """
+    # --- Initialization ---
+    original_lower_bounds = np.array(lower_bounds, dtype=float)
+    original_upper_bounds = np.array(upper_bounds, dtype=float)
+    current_lower_bounds = original_lower_bounds.copy()
+    current_upper_bounds = original_upper_bounds.copy()
+
+    all_evaluated_points = set()
+    n_dims = len(lower_bounds)
+    iteration_history = []
+    overall_best = {"point": None, "value": float("inf")}
+
+    # NEW: A list to store every single evaluation for the final output
+    full_evaluation_history = []
+
+    if axis_transforms and len(axis_transforms) != n_dims:
+        raise ValueError(
+            "The length of 'axis_transforms' must match the number of dimensions."
+        )
+
+    print("--- Starting Adaptive Grid Search (with Full History Logging) ---")
+
+    for i in range(n_iterations):
+        print(f"\nIteration {i + 1}/{n_iterations}")
+        print(f"  Current Search Bounds:")
+        for dim in range(n_dims):
+            is_log = " (Log Scale)" if axis_transforms and axis_transforms[dim] else ""
+            print(
+                f"    Dim {dim + 1}{is_log}: [{current_lower_bounds[dim]:.4g}, {current_upper_bounds[dim]:.4g}]"
+            )
+
+        # --- 1. Create Grid ---
+        grid_axes = []
+        for d in range(n_dims):
+            lower_b, upper_b = current_lower_bounds[d], current_upper_bounds[d]
+            transform_pair = axis_transforms[d] if axis_transforms else None
+            if transform_pair:
+                fwd, inv = transform_pair
+                final_axis = inv(
+                    np.linspace(fwd(lower_b), fwd(upper_b), n_points_per_dim)
+                )
+            else:
+                final_axis = np.linspace(lower_b, upper_b, n_points_per_dim)
+            grid_axes.append(final_axis)
+
+        # --- 2. Evaluate Points & Log Full History ---
+        points_to_evaluate = np.array(list(itertools.product(*grid_axes)))
+        all_evaluated_points.update(map(tuple, points_to_evaluate))
+
+        # NEW: Explicit loop to capture each evaluation for the full history log
+        values = []
+        for point in points_to_evaluate:
+            value = func(point)
+            values.append(value)
+            full_evaluation_history.append({"point": point, "value": value})
+        values = np.array(values)
+
+        min_index = np.argmin(values)
+        current_best_point = points_to_evaluate[min_index]
+        current_best_value = values[min_index]
+
+        print(f"  Best point in this iteration: {np.round(current_best_point, 4)}")
+        print(f"  Minimal value in this iteration: {current_best_value:.4f}")
+
+        iteration_history.append(
+            {
+                "iteration": i + 1,
+                "best_point": current_best_point,
+                "best_value": current_best_value,
+            }
+        )
+        if current_best_value < overall_best["value"]:
+            overall_best = {"point": current_best_point, "value": current_best_value}
+
+        # --- 3. Determine New Bounds for Next Iteration ---
+        if i < n_iterations - 1:
+            new_lower_bounds, new_upper_bounds = (
+                np.zeros_like(current_lower_bounds),
+                np.zeros_like(current_upper_bounds),
+            )
+            for d in range(n_dims):
+                coord_index = np.where(np.isclose(grid_axes[d], current_best_point[d]))[
+                    0
+                ][0]
+                new_lower = (
+                    grid_axes[d][coord_index - 1]
+                    if coord_index > 0
+                    else grid_axes[d][0]
+                )
+                new_upper = (
+                    grid_axes[d][coord_index + 1]
+                    if coord_index < n_points_per_dim - 1
+                    else grid_axes[d][-1]
+                )
+
+                # Expansion Logic (unchanged)
+                is_on_lower_edge = coord_index == 0
+                is_on_original_lower_bound = np.isclose(
+                    current_lower_bounds[d], original_lower_bounds[d]
+                )
+                if is_on_lower_edge and not is_on_original_lower_bound:
+                    print(f"    -> Expanding lower bound for Dim {d + 1}...")
+                    candidates = [
+                        p[d] for p in all_evaluated_points if p[d] < new_lower
+                    ]
+                    if candidates:
+                        new_lower = max(candidates)
+                    else:  # Fallback...
+                        # (omitted for brevity, code is identical to previous version)
+                        step = (current_upper_bounds[d] - current_lower_bounds[d]) / (
+                            n_points_per_dim - 1
+                        )
+                        new_lower -= step
+                    new_lower = max(new_lower, original_lower_bounds[d])
+
+                is_on_upper_edge = coord_index == n_points_per_dim - 1
+                is_on_original_upper_bound = np.isclose(
+                    current_upper_bounds[d], original_upper_bounds[d]
+                )
+                if is_on_upper_edge and not is_on_original_upper_bound:
+                    print(f"    -> Expanding upper bound for Dim {d + 1}...")
+                    candidates = [
+                        p[d] for p in all_evaluated_points if p[d] > new_upper
+                    ]
+                    if candidates:
+                        new_upper = min(candidates)
+                    else:  # Fallback...
+                        # (omitted for brevity, code is identical to previous version)
+                        step = (current_upper_bounds[d] - current_lower_bounds[d]) / (
+                            n_points_per_dim - 1
+                        )
+                        new_upper += step
+                    new_upper = min(new_upper, original_upper_bounds[d])
+
+                new_lower_bounds[d], new_upper_bounds[d] = new_lower, new_upper
+
+            current_lower_bounds, current_upper_bounds = (
+                new_lower_bounds,
+                new_upper_bounds,
+            )
+
+    print("\n--- Adaptive Grid Search Finished ---")
+    print(f"Final Optimal Point: {np.round(overall_best['point'], 6)}")
+    print(f"Final Optimal Value: {overall_best['value']:.6f}")
+
+    return overall_best, iteration_history, full_evaluation_history
 
 
 def projected_newton_solver(

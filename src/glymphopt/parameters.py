@@ -166,7 +166,15 @@ def is_quantity(x: Any) -> bool:
 
 
 def parameters_2d_default() -> dict[str, float | ufl.Coefficient]:
-    return {"a": 5, "phi": 0.22, "D_": 0.0002, "r": 9.1e-06, "k": 0.0017, "rho": 0.123}
+    return {
+        "a": 2.0,
+        "phi": 0.22,
+        "D_": 0.0002,
+        "r": 2e-6,
+        "k": 0.02,
+        "rho": 0.123,
+        "eta": 0.4,
+    }
 
 
 if __name__ == "__main__":
