@@ -1,37 +1,28 @@
 import click
-import numpy as np
 import dolfin as df
-import tqdm
 import pandas as pd
 
 
-from glymphopt.cache import CacheObject, cache_fetch
 from glymphopt.coefficientvectors import CoefficientVector
 
 from glymphopt.interpolation import LinearDataInterpolator
 from glymphopt.io import read_mesh, read_function_data, read_augmented_dti
-from glymphopt.operators import (
-    matrix_operator,
-    bilinear_operator,
-    matmul,
-    mass_matrix,
-    diffusion_operator_matrices,
-    transfer_matrix,
-    boundary_mass_matrices,
-    mass_matrices,
-)
+
 
 from glymphopt.minimize import adaptive_grid_search
-from glymphopt.timestepper import TimeStepper
-from glymphopt.assigners import VolumetricConcentration, SuperspaceAssigner
-from glymphopt.measure import LossFunction
 from glymphopy.twocompartment import MulticompartmentInverseProblem
 
 
 @click.command()
 @click.option("--input", "-i", type=str, required=True)
 @click.option("--output", "-o", type=str, required=True)
-def main(input, output):
+@click.option("-D_e", "D_e", type=float)
+@click.option("-D_p", "D_p", type=float)
+@click.option("-t_ep", "t_ep", type=float)
+@click.option("-t_pb", "t_pb", type=float)
+@click.option("-k_e", "k_e", type=float)
+@click.option("-k_p", "k_p", type=float)
+def main(input, output, **kwargs):
     domain = read_mesh(input)
     coefficients = {
         "n_e": 0.2,

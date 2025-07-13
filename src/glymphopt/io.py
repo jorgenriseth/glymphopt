@@ -4,7 +4,7 @@ import dolfin as df
 import numpy as np
 import pantarei as pr
 
-from gripmodels.utils import with_suffix
+from glymphopt.utils import with_suffix
 
 
 def read_augmented_dti(input_hdf):

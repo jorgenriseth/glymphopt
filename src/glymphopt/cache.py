@@ -1,13 +1,22 @@
+from types import NoneType
+from typing import Any, Callable, Generic, TypeVar, Optional
 import numpy as np
 
+T = TypeVar("T")
 
-class CacheObject:
+
+class CacheObject(Generic[T]):
     def __init__(self):
         self.lastx = {}
-        self.val = None
+        self.val: Optional[T] = None
 
 
-def cache_fetch(cache, func, cache_kwargs, **funkwargs):
+def cache_fetch[T](
+    cache: CacheObject,
+    func: Callable[..., T],
+    cache_kwargs: dict[str, Any],
+    **funkwargs: Any,
+) -> T:
     is_old_kwargs = all(
         [
             key in cache.lastx and np.array_equal(val, cache.lastx[key])
