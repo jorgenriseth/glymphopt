@@ -6,6 +6,7 @@ from glymphopt.coefficientvectors import CoefficientVector
 from glymphopt.interpolation import LinearDataInterpolator
 from glymphopt.io import read_mesh, read_function_data, read_augmented_dti
 from glymphopt.twocompartment import MulticompartmentInverseProblem
+from glymphopt.parameters import default_twocomp_parameters
 
 
 @click.command()
@@ -19,26 +20,14 @@ from glymphopt.twocompartment import MulticompartmentInverseProblem
 @click.option("--k_p", "k_p", type=float)
 def main(input, output, dt, **kwargs):
     # Load default parameters, dimensionalize and overwrite coefficients
+    default_coefficients = default_twocomp_parameters()
     overwrite_coefficients = {
         key: val for key, val in kwargs.items() if val is not None
     }
-    domain = read_mesh(input)
-    coefficients = {
-        "n_e": 0.2,
-        "n_p": 0.02,
-        "t_ep": 0.029,
-        "t_pb": 2e-06,
-        "k_e": 1e-05,
-        "k_p": 0.0037,
-        "rho": 0.113,
-        "gamma": 20.0,
-        "eta": 0.4,
-        "phi": 0.22,
-    } | overwrite_coefficients
+    coefficients = default_coefficients | overwrite_coefficients
     coeffconverter = CoefficientVector(coefficients, ("gamma", "t_pb"))
 
     domain = read_mesh(input)
-
     D = read_augmented_dti(input)
     D.vector()[:] *= coefficients["rho"]
 
@@ -68,16 +57,6 @@ def main(input, output, dt, **kwargs):
 
     print("Finished..")
     print()
-
-
-def parse_evaluation(evaluation, coeffconverter):
-    return {
-        **{
-            key: evaluation
-            for key, evaluation in zip(coeffconverter.vars, evaluation["point"])
-        },
-        "funceval": evaluation["value"],
-    }
 
 
 if __name__ == "__main__":
