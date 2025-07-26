@@ -1,241 +1,37 @@
-import json
-
 import click
 import numpy as np
 import dolfin as df
 import tqdm
-import scipy
 
-from dolfin import inner, grad, dot
+from dolfin import inner, grad
 
 
 from glymphopt.cache import CacheObject, cache_fetch
-from glymphopt.coefficientvectors import CoefficientVector
 from glymphopt.datageneration import BoundaryConcentration
 
-from glymphopt.interpolation import LinearDataInterpolator
-from glymphopt.io import read_mesh, read_function_data, read_augmented_dti
-from glymphopt.measure import measure
+from glymphopt.io import read_mesh, read_function_data
 from glymphopt.operators import (
     matrix_operator,
     bilinear_operator,
     matmul,
 )
-from glymphopt.parameters import (
-    parameters_2d_default,
-)
-from glymphopt.scale import create_reduced_problem
 from glymphopt.timestepper import TimeStepper
 
 
-@click.command()
-@click.option("--input", "-i", type=str, required=True)
-@click.option("--output", "-o", type=str, required=True)
-def main(input, output):
-    domain = read_mesh(input)
-    td, Yd = read_function_data(input, domain, "concentration")
-    td, Y_bdry = read_function_data(input, domain, "boundary_concentration")
-    coefficients = parameters_2d_default()
-    coeffconverter = CoefficientVector(coefficients, ("a", "r", "k"))
-
-    D = read_augmented_dti(input)
-    D.vector()[:] *= coefficients["rho"]
-
-    g = LinearDataInterpolator(td, Y_bdry, valuescale=1.0)
-    coefficients = {
-        "a": 2.0,
-        "phi": 0.22,
-        "r": 1e-6,
-        "k": 1e-2,
-        "rho": 0.123,
-        "eta": 0.4,
-    }
-    coeffconverter = CoefficientVector(coefficients, ("a", "r", "k", "eta"))
-    problem = InverseProblem(input, coeffconverter, g=g, D=D, progress=True)
-
-    # results = direct_scaled_minimizer(problem)
-    results = iterative_subproblem_optimization(problem, coeffconverter)
-    with open(output, "w") as f:
-        f.write(json.dumps(results, indent=2))
-
-
-def print_callback(intermediate_result):
-    print("-" * 60)
-    print(intermediate_result)
-
-
-def direct_scaled_minimizer(problem):
-    a_ref = 1.0
-    r_ref = 1e-6
-    k_ref = 1e-2
-    eta_ref = 1.0
-
-    a0 = 1.0
-    r0 = 0.0
-    k0 = 1e-2
-    eta0 = 0.4
-
-    scaled_problem = create_reduced_problem(
-        problem, np.array([a_ref, r_ref, k_ref, eta_ref]), [0, 1, 2, 3]
-    )
-    scaled_bounds = scipy.optimize.Bounds(
-        [0.1, 0.0, 0.0, 0.05], [10.0, 100.0, 100.0, 1.0]
-    )
-    y0 = np.array([a0, r0, k0, eta0])
-    scaled_problem.problem.silent = True
-    scaled_solution = scipy.optimize.minimize(
-        scaled_problem.F,
-        x0=y0,
-        method="L-BFGS-B",
-        jac=scaled_problem.gradF,
-        bounds=scaled_bounds,
-        callback=print_callback,
-    )
-    print(scaled_solution)
-    results_dict = {
-        "fun": scaled_solution.fun,
-        "x": scaled_problem.transform(scaled_solution.x).tolist(),
-        "success": scaled_solution.success,
-    }
-    return results_dict
-
-
-def iterative_subproblem_optimization(problem, coeffconverter):
-    print("Solving eta only minimization problem.")
-    a_ref = 1.0
-    r_ref = 1e-6
-    k_ref = 1e-2
-    eta_ref = 1.0
-
-    # After scaling
-    a0 = 1.0
-    r0 = 0.0
-    k0 = 1e-1
-    eta0 = 0.4
-
-    eta_problem = create_reduced_problem(problem, np.array([a0, r0, k0, eta_ref]), [3])
-    eta_bounds = scipy.optimize.Bounds([0.05], [1.0])
-    y0 = np.array([eta0])
-    eta_problem.problem.silent = True
-    sol_eta = scipy.optimize.minimize(
-        eta_problem.F,
-        x0=y0,
-        method="L-BFGS-B",
-        jac=eta_problem.gradF,
-        bounds=eta_bounds,
-        callback=print_callback,
-    )
-    print(sol_eta)
-    print(f"Min x: {sol_eta.x}")
-    print("-" * 60)
-    diffusion_problem = create_reduced_problem(
-        problem, np.array([a_ref, r0, k0, eta_ref]), [0, 3]
-    )
-    diffusion_bounds = scipy.optimize.Bounds([0.1, 0.05], [10.0, 1.0])
-    y0 = np.array([a0, *sol_eta.x])
-    diffusion_problem.problem.silent = True
-    sol_diffusion = scipy.optimize.minimize(
-        diffusion_problem.F,
-        x0=y0,
-        method="L-BFGS-B",
-        jac=diffusion_problem.gradF,
-        hess=diffusion_problem.hess,
-        bounds=diffusion_bounds,
-        callback=print_callback,
-    )
-    print(sol_diffusion)
-    print(sol_diffusion.x)
-
-    print("-" * 60)
-    diffusion_conductivity_problem = create_reduced_problem(
-        problem, np.array([a_ref, r0, k_ref, eta_ref]), [0, 2, 3]
-    )
-    diffusion_conductivity_bounds = scipy.optimize.Bounds(
-        [0.1, 0.0, 0.05], [10.0, 100.0, 1.0]
-    )
-    y0 = np.array([sol_diffusion.x[0], k0, sol_diffusion.x[1]])
-    diffusion_conductivity_problem.problem.silent = True
-    sol_diffusion_conductivity = scipy.optimize.minimize(
-        diffusion_conductivity_problem.F,
-        x0=y0,
-        method="L-BFGS-B",
-        jac=diffusion_conductivity_problem.gradF,
-        hess=diffusion_conductivity_problem.hess,
-        bounds=diffusion_conductivity_bounds,
-        callback=print_callback,
-    )
-    print(sol_diffusion_conductivity)
-
-    scaled_problem = create_reduced_problem(
-        problem, np.array([a_ref, r_ref, k_ref, eta_ref]), [0, 1, 2, 3]
-    )
-    scaled_bounds = scipy.optimize.Bounds(
-        [0.1, 0.0, 0.0, 0.05], [10.0, 100.0, 100.0, 1.0]
-    )
-    y0 = np.array(
-        [
-            sol_diffusion_conductivity.x[0],  # a
-            r0,
-            sol_diffusion_conductivity.x[1],  # k
-            sol_diffusion_conductivity.x[2],  # eta
-        ]
-    )
-    scaled_problem.problem.silent = True
-    scaled_solution = scipy.optimize.minimize(
-        scaled_problem.F,
-        x0=y0,
-        method="L-BFGS-B",
-        jac=scaled_problem.gradF,
-        bounds=scaled_bounds,
-        callback=print_callback,
-    )
-    print(scaled_solution)
-    results_dict = {
-        "fun": scaled_solution.fun,
-        "x": scaled_problem.transform(scaled_solution.x).tolist(),
-        "success": scaled_solution.success,
-    }
-    return results_dict
-
-
-class Model:
-    def __init__(self, V, D=None, g=None):
-        D = D or df.Identity(V.mesh().topology().dim())
-
-        domain = V.mesh()
-        dx = df.Measure("dx", domain)
-        ds = df.Measure("ds", domain)
-
-        u, v = df.TrialFunction(V), df.TestFunction(V)
-        self.M = df.assemble(inner(u, v) * dx)
-        self.DK = df.assemble(inner(dot(D, grad(u)), grad(v)) * dx)
-        self.S = df.assemble(inner(u, v) * ds)
-        self.g = g or BoundaryConcentration(V)
-
-
-def gradient_sensitivities(F, x, **kwargs):
-    return np.array([F(x, ei, **kwargs) for ei in np.eye(len(x))])
-
-
-def measure_interval(n: int, td: np.ndarray, timestepper: TimeStepper):
-    bins = np.digitize(td, timestepper.vector(), right=True)
-    return list(np.where(n == bins)[0])
-
-
-class InverseProblem:
+class SingleCompartmentInverseProblem:
     def __init__(
         self,
-        data_path,
+        td,
+        Yd,
         coefficientvector,
+        g,
+        D,
         dt=3600,
         timescale=1.0,
-        g=None,
-        D=None,
         progress=True,
     ):
         self.silent = not progress
-        domain = read_mesh(data_path)
-        self.td, self.Yd = read_function_data(data_path, domain, "concentration")
+        self.td, self.Yd = td, Yd
 
         t_start = self.td[0]
         dt = dt * timescale
@@ -246,10 +42,10 @@ class InverseProblem:
         coefficients = coefficientvector.coefficients
 
         self.V = self.Yd[0].function_space()
-        g = g or BoundaryConcentration(self.V, timescale * 3600)
-        D = D or coefficients["D"] * df.Identity(domain.topology().dim())
-        self.model = Model(self.V, g=g, D=D)
+        g = g
+        D = D
 
+        self.model = Model(self.V, g=g, D=D)
         self.cache = {
             "state": CacheObject(),
             "adjoint": CacheObject(),
@@ -262,9 +58,17 @@ class InverseProblem:
         self.Yd_norms = [_M_(yi.vector(), yi.vector()) for yi in self.Yd]
         self.coefficients = coefficientvector
 
+    def measure(self, Y: list[df.Function]) -> list[df.Function]:
+        Ym = [df.Function(self.V, name="measured_state") for _ in range(len(self.td))]
+        find_intervals = self.timestepper.find_intervals(self.td)
+        for i, _ in enumerate(self.td[1:], start=1):
+            ni = find_intervals[i]
+            Ym[i].assign(Y[ni + 1])
+        return Ym
+
     def F(self, x):
         Y = cache_fetch(self.cache["state"], self.forward, {"x": x}, x=x)
-        Ym = measure(self.timestepper, Y, self.td)
+        Ym = self.measure(Y)
         _M_ = bilinear_operator(self.model.M)
         timepoint_errors = [
             _M_(Ym_i.vector() - Yd_i.vector(), Ym_i.vector() - Yd_i.vector()) / norm_i
@@ -312,7 +116,7 @@ class InverseProblem:
         dt = self.timestepper.dt
         model = self.model
         Y = cache_fetch(self.cache["state"], self.forward, {"x": x}, x=x)
-        Ym = measure(self.timestepper, Y, self.td)
+        Ym = self.measure(Y)
 
         P = cache_fetch(self.cache["adjoint"], self.adjoint, {"x": x}, x=x, Ym=Ym)
         G = cache_fetch(self.cache["g"], self.boundary_vectors, {"eta": eta}, eta=eta)
@@ -357,7 +161,7 @@ class InverseProblem:
             nj = measure_interval(n, self.td, self.timestepper)
             jump = sum(
                 (
-                    matmul(M, (Ym[j].vector() - self.Yd[j].vector()) / self.Yd_norms[j])
+                    matmul(M, (Ym[j].vector() - Yd[j].vector()) / self.Yd_norms[j])
                     for j in nj
                 )
             )
@@ -380,8 +184,8 @@ class InverseProblem:
             dx=dx,
             Y=Y,
         )
-        Ym = measure(timestepper, Y, self.td)
-        dYm = measure(timestepper, dY, self.td)
+        Ym = self.measure(Y)
+        dYm = self.measure(dY)
         _M_ = bilinear_operator(self.model.M)
         return sum(
             [
@@ -401,7 +205,7 @@ class InverseProblem:
         phi = coefficients["phi"]
 
         Y = cache_fetch(self.cache["state"], self.forward, {"x": x}, x=x)
-        Ym = measure(self.timestepper, Y, self.td)
+        Ym = self.measure(Y)
         dY = cache_fetch(
             self.cache["sensitivity"],
             self.sensitivity,
@@ -410,7 +214,7 @@ class InverseProblem:
             dx=dx,
             Y=Y,
         )
-        dYm = measure(self.timestepper, dY, self.td)
+        dYm = self.measure(dY)
 
         P = cache_fetch(self.cache["adjoint"], self.adjoint, {"x": x}, x=x, Ym=Ym)
         dP = self.second_order_adjoint(x, dx, dYm, P)
@@ -506,5 +310,25 @@ class InverseProblem:
         return dP
 
 
-if __name__ == "__main__":
-    main()
+class Model:
+    def __init__(self, V, D=None, g=None):
+        D = D or df.Identity(V.mesh().topology().dim())
+
+        domain = V.mesh()
+        dx = df.Measure("dx", domain)
+        ds = df.Measure("ds", domain)
+
+        u, v = df.TrialFunction(V), df.TestFunction(V)
+        self.M = df.assemble(inner(u, v) * dx)
+        self.DK = df.assemble(inner(D * grad(u), grad(v)) * dx)
+        self.S = df.assemble(inner(u, v) * ds)
+        self.g = g or BoundaryConcentration(V)
+
+
+def gradient_sensitivities(F, x, **kwargs):
+    return np.array([F(x, ei, **kwargs) for ei in np.eye(len(x))])
+
+
+def measure_interval(n: int, td: np.ndarray, timestepper: TimeStepper):
+    bins = np.digitize(td, timestepper.vector(), right=True)
+    return list(np.where(n == bins)[0])
