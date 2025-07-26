@@ -31,17 +31,13 @@ def main(input, output, iterations):
         "phi": 0.22,
     }
     coeffconverter = CoefficientVector(coefficients, ("gamma", "t_pb"))
+    domain = read_mesh(input)
 
-    data_path = (
-        "/home/jorgen/gonzo/mri_processed_data/sub-01/modeling/resolution32/data.hdf"
-    )
-    domain = read_mesh(data_path)
-
-    D = read_augmented_dti(data_path)
+    D = read_augmented_dti(input)
     D.vector()[:] *= coefficients["rho"]
 
-    td, Yd = read_function_data(data_path, domain, "concentration")
-    td, Y_bdry_tmp = read_function_data(data_path, domain, "boundary_concentration")
+    td, Yd = read_function_data(input, domain, "concentration")
+    td, Y_bdry_tmp = read_function_data(input, domain, "boundary_concentration")
 
     # Want Y_bdry in same function space as Yd
     Y_bdry = [
