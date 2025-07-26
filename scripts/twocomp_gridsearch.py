@@ -1,37 +1,22 @@
 import click
 import numpy as np
 import dolfin as df
-import tqdm
 import pandas as pd
 
 
-from glymphopt.cache import CacheObject, cache_fetch
 from glymphopt.coefficientvectors import CoefficientVector
-
 from glymphopt.interpolation import LinearDataInterpolator
 from glymphopt.io import read_mesh, read_function_data, read_augmented_dti
-from glymphopt.operators import (
-    matrix_operator,
-    bilinear_operator,
-    matmul,
-    mass_matrix,
-    diffusion_operator_matrices,
-    transfer_matrix,
-    boundary_mass_matrices,
-    mass_matrices,
-)
 
 from glymphopt.minimize import adaptive_grid_search
-from glymphopt.timestepper import TimeStepper
-from glymphopt.assigners import VolumetricConcentration, SuperspaceAssigner
-from glymphopt.measure import LossFunction
-from glymphopy.twocompartment import MulticompartmentInverseProblem
+from glymphopt.twocompartment import MulticompartmentInverseProblem
 
 
 @click.command()
 @click.option("--input", "-i", type=str, required=True)
 @click.option("--output", "-o", type=str, required=True)
-def main(input, output):
+@click.option("--iter", "iterations", type=int, default=10)
+def main(input, output, iterations):
     domain = read_mesh(input)
     coefficients = {
         "n_e": 0.2,
@@ -77,7 +62,7 @@ def main(input, output):
         lower_bounds=[1.0, 0.0],
         upper_bounds=[45, 1e-5],
         n_points_per_dim=5,
-        n_iterations=6,
+        n_iterations=iterations,
     )
     records = [parse_evaluation(pointeval, coeffconverter) for pointeval in full_hist]
     data = pd.DataFrame.from_records(records)

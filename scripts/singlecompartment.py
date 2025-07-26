@@ -52,7 +52,6 @@ def main(input, output, visual, **kwargs):
 
     Y = problem.forward(coeffconverter.to_vector())
     Ym = problem.measure(Y)
-
     with df.HDF5File(domain.mpi_comm(), output, "w") as hdf:
         for ti, Ym_i in zip(td, Ym):
             pr.write_checkpoint(hdf, Ym_i, "concentration", t=ti)

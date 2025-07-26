@@ -12,6 +12,18 @@ rule all:
         [f"results/{subject}_singlecomp_gridsearch.csv" for subject in SUBJECTS if exists(f"mri_processed_data/{subject}/modeling/resolution32/data.hdf") ],
         [f"results/{subject}_twocomp_gridsearch.csv" for subject in SUBJECTS if exists(f"mri_processed_data/{subject}/modeling/resolution32/data.hdf") ]
 
+rule create_evaluation_data:
+  input:
+    hdf="mri_processed_data/{subject}/modeling/resolution{res}/data.hdf",
+    concentration_dir="mri_processed_data/{subject}/concentrations/"
+  output:
+    "mri_processed_data/{subject}/modeling/resolution{res}/evaluation_data.npz"
+  shell:
+    "python src/glymphopt/mri_loss.py"
+    " --input {input.hdf}"
+    " --output {output}"
+    " {input.concentration_dir}/{wildcards.subject}_ses*_concentration.nii.gz"
+
 
 rule optimize_singlecompartment:
     input:
@@ -38,12 +50,15 @@ rule gridsearch_twocompartment:
         "mri_processed_data/{subject}/modeling/resolution32/data.hdf"
     output:
         "results/{subject}_twocomp_gridsearch.csv"
+    params:
+      iterations = 1
     resources:
         runtime="30h"
     shell:
-        "python scripts/multicomp_gridsearch.py"
+        "python scripts/twocomp_gridsearch.py"
         " -i {input}"
         " -o {output}"
+        " --iter {params.iterations}"
 
 
 rule run_optimal_singlecompartment:
@@ -62,19 +77,19 @@ rule run_optimal_singlecompartment:
     " -a {params.alpha}"
     " -r {params.r}"
 
-rule run_optimal_multicompartment:
+rule run_optimal_twocompartment:
   input:
-    "results/{subject}_multicomp_gridsearch.csv",
-    "mri_processed_data/{subject}/modeling/resolution32/data.hdf",
+    "results/{subject}_twocomp_gridsearch.csv",
+    data="mri_processed_data/{subject}/modeling/resolution32/data.hdf",
   output:
-    "results/{subject}_multicomp_optimal.hdf",
-    "results/{subject}_multicomp_optimal.xdmf",
+    "results/{subject}_twocomp_optimal.hdf",
   params:
     gamma = lambda wc: get_optimal(f"results/{wc.subject}_twocomp_gridsearch.csv", "gamma"),
     t_pb = lambda wc: get_optimal(f"results/{wc.subject}_twocomp_gridsearch.csv", "t_pb")
   shell:
-    "python scripts/multicomp_run.py"
-    " -i {input}"
+    "python scripts/twocompartment.py"
+    " -i {input.data}"
+    " -o {output}"
     " --gamma {params.gamma}"
     " --t_pb {params.t_pb}"
 
@@ -82,11 +97,16 @@ rule errortable:
   input:
     data="mri_processed_data/{subject}/modeling/resolution32/data.hdf",
     single="results/{subject}_singlecomp_optimal.hdf",
-    multi="results/{subject}_multicomp_optimal.hdf",
+    multi="results/{subject}_twocomp_optimal.hdf",
   output:
     "results/{subject}_errortable.csv"
   shell:
     "python scripts/create_errortable.py"
-    " -d {input.data}"
-    " --single {input.single}"
-    " --multi {input.multi}"
+    " --datapath {input.data}"
+    " --singlecomp {input.single}"
+    " --twocomp {input.multi}"
+    " --output {output}"
+
+rule converge_analysis:
+  input:
+    "results/convergence/{subject}/data"

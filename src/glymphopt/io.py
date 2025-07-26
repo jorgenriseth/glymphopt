@@ -70,13 +70,12 @@ def read_function_data(input_hdf, domain, funcname):
         celltype = domain.ufl_cell()
         element = df.FiniteElement("CG", celltype, 1)
         V = df.FunctionSpace(domain, element)
-
         time_data = read_timevector(hdf, funcname)
         N = len(time_data)
-        c_data = [df.Function(V, name=f"funcname_{idx}") for idx in range(N)]
+        c_data = [df.Function(V, name=f"{funcname}_{idx}") for idx in range(N)]
         for idx in range(N):
             read_checkpoint(hdf, c_data[idx], name=funcname, idx=idx)
-        return np.array(time_data), c_data
+    return np.array(time_data), c_data
 
 
 def read_timevector(hdf: df.HDF5File, function_name: str):

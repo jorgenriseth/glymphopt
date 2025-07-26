@@ -1,8 +1,10 @@
 import dolfin as df
 import numpy as np
+import scipy as sp
 
 from glymphopt.timestepper import TimeStepper
-from glymphopt.operators import mass_matrix, bilinear_operator
+from glymphopt.operators import mass_matrix, bilinear_operator, matrix_operator
+from glymphopt.mri_loss import numpy_array_to_dolfin_vector, sparse_matrix_to_dolfin
 
 
 def measure_interval(n: int, td: np.ndarray, timestepper: TimeStepper):
@@ -50,6 +52,40 @@ class LossFunction:
     def measure(self, timesteps, Y, td, measure_op):
         Y = [df.Function(self.V, name="measured_state") for _ in range(len(td))]
         find_intervals = timesteps.find_intervals(self.td)
+        for i, _ in enumerate(td[1:], start=1):
+            ni = find_intervals[i]
+            Y[i].assign(measure_op(Y[ni + 1]))
+        return Y
+
+
+class MRILoss:
+    def __init__(self, evaluation_data):
+        npzfile = np.load(evaluation_data)
+        M = sp.sparse.csr_matrix(
+            (
+                npzfile["matrix_data"],
+                npzfile["matrix_indices"],
+                npzfile["matrix_indptr"],
+            ),
+            shape=npzfile["matrix_shape"],
+        )
+        Cd = [npzfile[f"vector{idx}"] for idx in range(5)]
+
+        self.M = sparse_matrix_to_dolfin(M)
+        self.Cd = [numpy_array_to_dolfin_vector(cdi) for cdi in Cd[1:]]
+        self.M_ = [matrix_operator(self.M) for _ in range(4)]
+        self.norm = [np.sum(ci**2) for ci in Cd[1:]]
+
+    def __call__(self, Ym):
+        errs = (
+            self.M_[idx](ym.vector()) - self.Cd[idx] for idx, ym in enumerate(Ym[1:])
+        )
+        return 0.5 * sum(e.inner(e) / norm for e, norm in zip(errs, self.norm))
+
+    def measure(self, timesteps, Y, td, measure_op):
+        V = Y[0].function_space()
+        Y = [df.Function(V, name="measured_state") for _ in range(len(td))]
+        find_intervals = timesteps.find_intervals(td)
         for i, _ in enumerate(td[1:], start=1):
             ni = find_intervals[i]
             Y[i].assign(measure_op(Y[ni + 1]))
