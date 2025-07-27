@@ -34,9 +34,7 @@ def main(input, output, iterations, dt):
     ]
     [Y_bdry[i].interpolate(Y_bdry_tmp[i]) for i in range(len(td))]
 
-    g = LinearDataInterpolator(
-        td, Y_bdry, valuescale=coefficients["eta"] / coefficients["phi"]
-    )
+    g = LinearDataInterpolator(td, Y_bdry, valuescale=1.0)
     problem = MulticompartmentInverseProblem(
         td, Yd, coeffconverter, g=g, D=D, dt=dt, progress=True
     )

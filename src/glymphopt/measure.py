@@ -20,15 +20,19 @@ def measure(
     V = states[0].function_space()
     Y = [df.Function(V, name="measured_state") for _ in range(len(measure_times))]
     find_intervals = timesteps.find_intervals(measure_times)
-    for i, _ in enumerate(measure_times[1:], start=1):
+    dt = timesteps.dt
+    time = timesteps.vector()
+    for i, ti in enumerate(measure_times[1:], start=1):
         ni = find_intervals[i]
+
         # Use stepwise solution, as it is not necessarily straight forward to use
         # the linear interpolant between timepoints.
         # print(i, ni, time[ni], ti, time[ni + 1])
-        Y[i].assign(states[ni + 1])
+        # Y[i].assign(states[ni + 1])
+
         # Need to rederive this expression if I want to use linear interpolant
-        # step_fraction = (ti - time[ni]) / dt
-        # Y[i].assign(((1 - step_fraction) * states[ni] + step_fraction * states[ni + 1]))
+        step_fraction = (ti - time[ni]) / dt
+        Y[i].assign(((1 - step_fraction) * states[ni] + step_fraction * states[ni + 1]))
     return Y
 
 
@@ -48,14 +52,6 @@ class LossFunction:
             for Ym_i, Yd_i, norm_i in zip(Ym[1:], self.Yd[1:], self.norms[1:])
         ]
         return 0.5 * sum(timepoint_errors)
-
-    def measure(self, timesteps, Y, td, measure_op):
-        Y = [df.Function(self.V, name="measured_state") for _ in range(len(td))]
-        find_intervals = timesteps.find_intervals(self.td)
-        for i, _ in enumerate(td[1:], start=1):
-            ni = find_intervals[i]
-            Y[i].assign(measure_op(Y[ni + 1]))
-        return Y
 
 
 class MRILoss:

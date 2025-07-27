@@ -25,29 +25,28 @@ def main(input, output, dt, **kwargs):
         key: val for key, val in kwargs.items() if val is not None
     }
     coefficients = default_coefficients | overwrite_coefficients
-    coeffconverter = CoefficientVector(coefficients, ("gamma", "t_pb"))
 
     domain = read_mesh(input)
     D = read_augmented_dti(input)
     D.vector()[:] *= coefficients["rho"]
 
     td, Yd = read_function_data(input, domain, "concentration")
-    td, Y_bdry_tmp = read_function_data(input, domain, "boundary_concentration")
 
-    # Want Y_bdry in same function space as Yd
+    td, Y_bdry_tmp = read_function_data(input, domain, "boundary_concentration")
+    # Want Y_bdry in same function space as Yd (don't remember why its needed)
     Y_bdry = [
         df.Function(Yd[0].function_space(), name="boundary_concentration")
         for _ in Y_bdry_tmp
     ]
     [Y_bdry[i].interpolate(Y_bdry_tmp[i]) for i in range(len(td))]
-    g = LinearDataInterpolator(
-        td, Y_bdry, valuescale=coefficients["eta"] / coefficients["phi"]
-    )
 
+    phi = coefficients["n_e"] + coefficients["n_p"]
+    g = LinearDataInterpolator(td, Y_bdry, valuescale=1.0)
+
+    coeffconverter = CoefficientVector(coefficients, ("gamma", "t_pb"))
     problem = MulticompartmentInverseProblem(
         td, Yd, coeffconverter, g=g, D=D, dt=dt, progress=True
     )
-    coeffconverter = CoefficientVector(coefficients, ("gamma", "t_pb"))
     Y = problem.forward(coeffconverter.to_vector())
     Ym = problem.measure(Y)
     print("Storing...")
