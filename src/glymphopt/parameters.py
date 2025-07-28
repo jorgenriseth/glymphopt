@@ -29,7 +29,7 @@ DEFAULT_PARAMETERS = {
         "e": 1.0e-5 * mm / s,
         "p": 3.7e-4 * mm / s,
     },
-    "gamma": (10.0 * dimless),  # Factor of enhanced diffusion in PVS
+    "gamma": (20.0 * dimless),  # Factor of enhanced diffusion in PVS
     "rho": 0.113 * dimless,  # Ratio of free diffusion of gadobutrol to water
     "eta": 0.39 * dimless,
 }

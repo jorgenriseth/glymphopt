@@ -33,7 +33,7 @@ class SingleCompartmentModel:
         a = coefficients["a"]
         r = coefficients["r"]
         k = coefficients["k"]
-        return a * self.DK + r * self.M + k * self.S
+        return a * self.DK + r * self.M_ + k * self.S
 
 
 class SingleCompartmentInverseProblem:
@@ -45,6 +45,7 @@ class SingleCompartmentInverseProblem:
         g,
         D,
         dt=3600,
+        solver_type="direct",
         timescale=1.0,
         progress=True,
     ):
@@ -66,10 +67,11 @@ class SingleCompartmentInverseProblem:
             "sensitivity": CacheObject(),
             "operator": CacheObject(),
         }
+        self.solver_type = solver_type
 
-        _M_ = bilinear_operator(self.model.M)
-        self.Yd_norms = [_M_(yi.vector(), yi.vector()) for yi in self.Yd]
         self.coefficients = coefficientvector
+        _M_ = bilinear_operator(self.model.M("_"))
+        self.Yd_norms = [_M_(yi.vector(), yi.vector()) for yi in self.Yd]
         self.loss = LossFunction(td, Yd)
 
     def measure(self, Y: list[df.Function]) -> list[df.Function]:
@@ -93,14 +95,34 @@ class SingleCompartmentInverseProblem:
         M = model.M(coefficients)
         L = model.L(coefficients)
         G = cache_fetch(self.cache["g"], self.boundary_vectors, {"x": x}, x=x)
-        solver = cache_fetch(
-            self.cache["operator"], df.LUSolver, {"x": x}, A=M + dt * L
-        )
-        Mdot = matrix_operator(M)
+
+        if self.solver_type == "direct":
+            solver = cache_fetch(
+                self.cache["operator"],
+                df.LUSolver,
+                {"x": x, "solver": self.solver_type},
+                A=M + (0.5 * dt) * L,  # Crank-Nicolson
+                # A=M + dt * L, # Implicit Euler
+            )
+        else:
+            solver = cache_fetch(
+                self.cache["operator"],
+                df.KrylovSolver,
+                {"x": x, "solver": self.solver_type},
+                A=M + (0.5 * dt) * L,  # Crank-Nicolson
+                method="cg",
+                preconditioner="jacobi",
+            )
+        Mdot = matrix_operator(M - (0.5 * dt) * L)  # Crank-Nicolson
+        # Mdot = matrix_operator(M)  # Implicit Euler
 
         N = self.timestepper.num_intervals()
         for n in tqdm.tqdm(range(N), total=N, disable=self.silent):
-            solver.solve(Y[n + 1].vector(), Mdot(Y[n].vector()) + dt * G[n + 1])
+            solver.solve(
+                Y[n + 1].vector(),
+                Mdot(Y[n].vector()) + 0.5 * dt * (G[n] + G[n + 1]),  # Crank-Nicolson
+                # Mdot(Y[n].vector()) + (dt) * G[n + 1],  # Implicit-Euler
+            )
         return Y
 
     def boundary_vectors(self, x):
@@ -239,6 +261,7 @@ class SingleCompartmentInverseProblem:
         )
 
     def sensitivity(self, x, dx, Y) -> list[df.Function]:
+        raise NotImplementedError("Need update following refactor.")
         coefficients = self.coefficients.from_vector(x)
         a = coefficients["a"]
         r = coefficients["r"]
