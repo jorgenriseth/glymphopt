@@ -58,7 +58,15 @@ class TwocompartmentModel:
 
 class MulticompartmentInverseProblem:
     def __init__(
-        self, td, Yd, coefficientvector, g, D, dt=3600, timescale=1.0, progress=True
+        self,
+        td,
+        Yd,
+        coefficientvector,
+        g,
+        D,
+        dt=3600,
+        timescale=1.0,
+        progress=True,
     ):
         self.silent = not progress
         self.td, self.Yd = td, Yd

@@ -1819,7 +1819,7 @@ packages:
 - pypi: ./
   name: glymphopt
   version: 0.1.0
-  sha256: c858882ffd3ba63a05ac270ee38da2d79c9a7be4863f435a624c7bc8fc30e670
+  sha256: 067c0bff742d758cad1b1eb1bbb0a5980d9d64ac3b46a315c4373901b441d058
   requires_python: '>=3.11'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/gmp-6.3.0-hac33072_2.conda
@@ -5102,7 +5102,8 @@ packages:
   - python
   license: BSD-3-Clause
   license_family: BSD
-  purls: []
+  purls:
+  - pkg:pypi/pycparser?source=hash-mapping
   size: 110100
   timestamp: 1733195786147
 - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-2.11.7-pyh3cfb1c2_0.conda

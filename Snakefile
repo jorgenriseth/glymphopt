@@ -6,6 +6,8 @@ def get_optimal(file, key):
   dframe = pd.read_csv(file, sep=";")
   return float(dframe.loc[dframe["funceval"].idxmin()][key])
 
+
+
 rule all:
     input:
         #[f"results/{subject}.json" for subject in SUBJECTS if exists(f"mri_processed_data/{subject}/modeling/resolution32/data.hdf") ]
@@ -53,7 +55,7 @@ rule gridsearch_twocompartment:
     params:
       iterations = 1
     resources:
-        runtime="30h"
+      runtime="30h"
     shell:
         "python scripts/twocomp_gridsearch.py"
         " -i {input}"
@@ -107,6 +109,28 @@ rule errortable:
     " --twocomp {input.multi}"
     " --output {output}"
 
-rule converge_analysis:
+
+from glymphopt.param_utils import float_string_formatter
+
+
+rule singlecomp_converge_analysis_workflow:
   input:
-    "results/convergence/{subject}/data"
+    hdf="mri_processed_data/{subject}/modeling/resolution{res}/data.hdf",
+    eval="mri_processed_data/{subject}/modeling/resolution{res}/evaluation_data.npz"
+  output:
+    "results/singlecomp_convergence/{subject}_resolution-{res}_dt-{dt}_alpha-{alpha}_r-{r}.hdf"
+  params:
+    alpha = lambda wc: float(wc.alpha),
+    r = lambda wc: float(wc.r)
+  shell:
+    "python scripts/singlecompartment_convergence.py"
+    " -i {input.hdf}"
+    " -o {output}"
+    " -e {input.eval}"
+    " --dt {wildcards.dt}"
+
+
+
+
+
+
