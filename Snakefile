@@ -1,6 +1,13 @@
 ########################
 ## Setup
 ########################
+container: "glymphopt.sif"
+
+if DeploymentMethod.APPTAINER in workflow.deployment_settings.deployment_method:
+  shell.prefix(
+    "set -eo pipefail; "
+    "/app/entrypoint.sh "
+  )
 
 with open("subjects.txt", "r") as f:
     SUBJECTS = [line.strip() for line in f.readlines()]
@@ -18,11 +25,10 @@ def mixed_exists(subject, session):
   mixed = f"mri_dataset/{subject}/{session}/mixed/{subject}_{session}_acq-mixed_SE-modulus.nii.gz"
   return Path(mixed).exists()
 
-# rule all:
-#     input:
-#         #[f"results/{subject}.json" for subject in SUBJECTS if exists(f"mri_processed_data/{subject}/modeling/resolution32/data.hdf") ]
-#         [f"results/{subject}_singlecomp_gridsearch.csv" for subject in SUBJECTS if exists(f"mri_processed_data/{subject}/modeling/resolution32/data.hdf") ],
-#         [f"results/{subject}_twocomp_gridsearch.csv" for subject in SUBJECTS if exists(f"mri_processed_data/{subject}/modeling/resolution32/data.hdf") ]
+def concentration_exists(subject, session):
+  concentration = f"mri_processed_data/{subject}/concentrations/{subject}_{session}_concentration.nii.gz"
+  return Path(concentration).exists()
+
 
 
 ###################################
@@ -79,7 +85,7 @@ rule create_evaluation_data:
     concentrations= lambda wc: [
       f"mri_processed_data/{wc.subject}/concentrations/{wc.subject}_{ses}_concentration.nii.gz"
       for ses in (f"ses-{idx:02d}" for idx in range(1, 6))
-      if (looklocker_exists(wc.subject, ses) and mixed_exists(wc.subject, ses))
+      if concentration_exists(wc.subject, ses)
     ],
     csfmask = "mri_processed_data/{subject}/segmentations/{subject}_seg-csf_binary.nii.gz",
     timestamps="mri_processed_data/{subject}/modeling/timestamps.txt",
@@ -151,7 +157,7 @@ rule boundary_concentrations:
     concentrations= lambda wc: [
       f"mri_processed_data/{wc.subject}/concentrations/{wc.subject}_{ses}_concentration.nii.gz"
       for ses in (f"ses-{idx:02d}" for idx in range(1, 6))
-      if (looklocker_exists(wc.subject, ses) and mixed_exists(wc.subject, ses))
+      if concentration_exists(wc.subject, ses)
     ],
   output:
     hdf="mri_processed_data/{subject}/modeling/resolution{res}/boundary_concentrations.hdf",
@@ -288,8 +294,9 @@ rule twocomp_convergence_analysis_workflow:
 
 
 #####################
-# Adaptive Gridsearch
+# Adaptive Gridsearch Singlecompartment
 #####################
+localrules: define_initial_grid, refine_grid, collect_initial_grid, collect_grid
 
 def read_grid(file):
   try:
@@ -299,11 +306,15 @@ def read_grid(file):
     filenames = []
   return filenames
 
-ALPHA_BOUNDS = (1, 45)
+ALPHA_BOUNDS = (1, 5)
 R_BOUNDS = (0, 5e-5)
 
 ruleorder: define_initial_grid > refine_grid
 checkpoint define_initial_grid:
+  input:
+    "mri_processed_data/{subject}/modeling/resolution30/data.hdf",
+    "mri_processed_data/{subject}/modeling/resolution30/evaluation_data.npz",
+    "mri_processed_data/{subject}/modeling/timestamps.txt"
   output:
     "results/singlecompartment_gridsearch/{subject}/grid0.csv"
   params:
@@ -315,15 +326,6 @@ checkpoint define_initial_grid:
     " --param r {params.r_bounds}"
     " -o {output}"
 
-rule optimize_singlecompartment:
-    input:
-        "mri_processed_data/{subject}/modeling/resolution32/data.hdf"
-    output:
-        "results/{subject}_singlecomp_minimization.json"
-    shell:
-        "python scripts/diffusion_reaction_minimization.py"
-        " -i {input}"
-        " -o {output}"
 
 rule gridsearch_singlecompartment:
     input:
@@ -344,6 +346,10 @@ rule singlecompartment_point_evaluation:
   params:
     a = lambda wc: float(wc.alpha),
     r = lambda wc: float(wc.r)
+  threads: 1
+  resources:
+      cpus_per_task=1,
+      runtime="20m"
   shell:
     "python scripts/singlecompartment_eval_point.py"
     " -i {input.hdf}"
@@ -393,6 +399,100 @@ rule collect_grid:
     ]
   output:
     "results/singlecompartment_gridsearch/{subject}/history{iter}.csv"
+  params:
+    input_list = lambda wc, input: " ".join(input.sim_results)
+  shell:
+    "python scripts/collect_grid_value.py"
+    " {params.input_list}"
+    " -o {output}"
+    " --history {input.history}"
+
+##############################
+### Adaptive twocomp gridsearch
+#############################
+localrules: define_initial_grid, refine_grid, collect_initial_grid, collect_grid
+
+GAMMA_BOUNDS = (1, 45)
+T_PB_BOUNDS = (0, 1e-5)
+
+ruleorder: define_initial_grid_twocompartment > refine_grid_twocompartment
+rule define_initial_grid_twocompartment:
+  input:
+    "mri_processed_data/{subject}/modeling/resolution30/data.hdf",
+    "mri_processed_data/{subject}/modeling/resolution30/evaluation_data.npz",
+    "mri_processed_data/{subject}/modeling/timestamps.txt"
+  output:
+    "results/twocompartment_gridsearch/{subject}/grid0.csv"
+  params:
+    gamma_bounds = lambda wc: " ".join(map(str, GAMMA_BOUNDS)),
+    t_pb_bounds = lambda wc: " ".join(map(str, T_PB_BOUNDS)),
+  shell:
+    "python scripts/grid_scheduler.py"
+    " --param gamma {params.gamma_bounds}"
+    " --param t_pb {params.t_pb_bounds}"
+    " -o {output}"
+
+rule twocompartment_point_evaluation:
+  input:
+    hdf="mri_processed_data/{subject}/modeling/resolution30/data.hdf",
+    eval="mri_processed_data/{subject}/modeling/resolution30/evaluation_data.npz"
+  output:
+    "results/twocompartment_gridsearch/{subject}/gamma{gamma}_t_pb{t_pb}_error.json"
+  params:
+    gamma = lambda wc: float(wc.gamma),
+    t_pb = lambda wc: float(wc.t_pb)
+  threads: 1
+  resources:
+      cpus_per_task=1,
+  shell:
+    "python scripts/twocompartment_eval_point.py"
+    " -i {input.hdf}"
+    " -e {input.eval}"
+    " -o {output}"
+    " --gamma {params.gamma}"
+    " --t_pb {params.t_pb}"
+
+ruleorder: collect_initial_grid_twocompartment > collect_grid_twocompartment
+rule collect_initial_grid_twocompartment:
+  input:
+    "results/twocompartment_gridsearch/{subject}/grid0.csv",
+    sim_results = lambda wc: [
+      f"results/twocompartment_gridsearch/{wc.subject}/{file}"
+      for file in read_grid(f"results/twocompartment_gridsearch/{wc.subject}/grid0.csv")
+    ]
+  output:
+    "results/twocompartment_gridsearch/{subject}/history0.csv"
+  params:
+    input_list = lambda wc, input: " ".join(input.sim_results)
+  shell:
+    "python scripts/collect_grid_value.py"
+    " {params.input_list}"
+    " -o {output}"
+
+checkpoint refine_grid_twocompartment:
+  input:
+    lambda wc: f"results/twocompartment_gridsearch/{wc.subject}/history{int(wc.iter)-1}.csv"
+  output:
+    "results/twocompartment_gridsearch/{subject}/grid{iter}.csv"
+  params:
+    gamma_bounds = lambda wc: " ".join(map(str,GAMMA_BOUNDS)),
+    r_bounds = lambda wc: " ".join(map(str, T_PB_BOUNDS)),
+  shell:
+    "python scripts/grid_scheduler.py"
+    " --param gamma {params.gamma_bounds}"
+    " --param t_pb {params.t_pb_bounds}"
+    " --history {input}"
+    " -o {output}"
+
+rule collect_grid_twocompartment:
+  input:
+    grid="results/twocompartment_gridsearch/{subject}/grid{iter}.csv",
+    history=lambda wc: f"results/twocompartment_gridsearch/{wc.subject}/history{int(wc.iter)-1}.csv",
+    sim_results = lambda wc: [f"results/twocompartment_gridsearch/{wc.subject}/{file}"
+      for file in read_grid(f"results/twocompartment_gridsearch/{wc.subject}/grid{wc.iter}.csv")
+    ]
+  output:
+    "results/twocompartment_gridsearch/{subject}/history{iter}.csv"
   params:
     input_list = lambda wc, input: " ".join(input.sim_results)
   shell:
