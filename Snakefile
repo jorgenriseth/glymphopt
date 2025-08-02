@@ -416,7 +416,7 @@ GAMMA_BOUNDS = (1, 45)
 T_PB_BOUNDS = (0, 1e-5)
 
 ruleorder: define_initial_grid_twocompartment > refine_grid_twocompartment
-rule define_initial_grid_twocompartment:
+checkpoint define_initial_grid_twocompartment:
   input:
     "mri_processed_data/{subject}/modeling/resolution30/data.hdf",
     "mri_processed_data/{subject}/modeling/resolution30/evaluation_data.npz",
@@ -476,7 +476,7 @@ checkpoint refine_grid_twocompartment:
     "results/twocompartment_gridsearch/{subject}/grid{iter}.csv"
   params:
     gamma_bounds = lambda wc: " ".join(map(str,GAMMA_BOUNDS)),
-    r_bounds = lambda wc: " ".join(map(str, T_PB_BOUNDS)),
+    t_pb_bounds = lambda wc: " ".join(map(str, T_PB_BOUNDS)),
   shell:
     "python scripts/grid_scheduler.py"
     " --param gamma {params.gamma_bounds}"
