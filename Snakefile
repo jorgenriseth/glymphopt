@@ -335,17 +335,22 @@ rule gridsearch_singlecompartment:
         " -i {input}"
         " -o {output}"
 
-rule evaluate_point:
+rule singlecompartment_point_evaluation:
   input:
-    "mri_processed_data/{subject}/modeling/resolution30/data.hdf",
+    hdf="mri_processed_data/{subject}/modeling/resolution30/data.hdf",
+    eval="mri_processed_data/{subject}/modeling/resolution30/evaluation_data.npz"
   output:
     "results/singlecompartment_gridsearch/{subject}/alpha{alpha}_r{r}_error.json"
   params:
     a = lambda wc: float(wc.alpha),
     r = lambda wc: float(wc.r)
   shell:
-    "python scripts/test_script_evaluate.py"
-    " --alpha {params.a} --r {params.r} -o {output}"
+    "python scripts/singlecompartment_eval_point.py"
+    " -i {input.hdf}"
+    " -e {input.eval}"
+    " -o {output}"
+    " --a {params.a}"
+    " --r {params.r}"
 
 ruleorder: collect_initial_grid > collect_grid
 rule collect_initial_grid:
@@ -395,11 +400,3 @@ rule collect_grid:
     " {params.input_list}"
     " -o {output}"
     " --history {input.history}"
-
-
-
-
-
-
-
-

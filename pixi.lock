@@ -51,11 +51,11 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/charls-2.4.2-h59595ed_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/charset-normalizer-3.4.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/click-8.2.1-pyh707e725_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-cbc-2.10.12-h4d16d09_3.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-cgl-0.60.9-hc46dffc_5.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-clp-1.17.10-hc03379b_2.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-osi-0.108.11-hf4fecb4_5.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-utils-2.11.12-h93d2bc8_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-cbc-2.10.12-h4d16d09_4.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-cgl-0.60.9-hc46dffc_6.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-clp-1.17.10-hc03379b_3.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-osi-0.108.11-hf4fecb4_7.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-utils-2.11.12-h93d2bc8_5.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/colorama-0.4.6-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/coloredlogs-15.0.1-pyhd8ed1ab_4.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/comm-0.2.3-pyhe01879c_0.conda
@@ -63,7 +63,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/conda-inject-1.3.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/configargparse-1.7.1-pyhe01879c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/connection_pool-0.0.3-pyhd3deb0d_0.tar.bz2
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/contourpy-1.3.3-py312hd9148b4_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/contourpy-1.3.3-py312hd9148b4_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/cpython-3.12.11-py312hd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/cycler-0.12.1-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cyrus-sasl-2.1.28-hd9c7081_0.conda
@@ -536,7 +536,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/6d/25/b2b9d042399c967e6f1a8137f0c06bff1e5800f74d15b9f765768ffef0b0/pymeshfix-0.17.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/1c/b9/ef0df29f7d69dc21def0ab0ddccd7521f08d47c97e01969b90c6611c229e/simple_mri-0.1.6-py3-none-any.whl
       - pypi: ./
-      - pypi: /home/jorgen/gmri2fem
+      - pypi: ./deps/gmri2fem
 packages:
 - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-3_kmp_llvm.conda
   build_number: 3
@@ -1054,9 +1054,9 @@ packages:
   - pkg:pypi/click?source=hash-mapping
   size: 87749
   timestamp: 1747811451319
-- conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-cbc-2.10.12-h4d16d09_3.conda
-  sha256: ed89798d7ec6e49ad6b3dabd7f85f339988eaa3c4340727c64a1489d5d433533
-  md5: a2049a6b18101812e788ef5919d110f5
+- conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-cbc-2.10.12-h4d16d09_4.conda
+  sha256: f0d30355938591dbb45530f86484e0786b7eae0afdf1790ca3640cf0e7af6899
+  md5: 603a1a18878030b5e6793ba558fac972
   depends:
   - __glibc >=2.17,<3.0.a0
   - bzip2 >=1.0.8,<2.0a0
@@ -1078,11 +1078,11 @@ packages:
   license: EPL-2.0
   license_family: OTHER
   purls: []
-  size: 912188
-  timestamp: 1753932291518
-- conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-cgl-0.60.9-hc46dffc_5.conda
-  sha256: 7424d09806c1a84fea222d0757b277434280200bac3f60831cc248cfdc79c7cf
-  md5: 64f3ab004a1096443e6c09985d6644e5
+  size: 910494
+  timestamp: 1754142617737
+- conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-cgl-0.60.9-hc46dffc_6.conda
+  sha256: 37aa7b2c010f10e8876cb1d6a8b7671b3b67b289e581dd6b1bbedd38b4b7e918
+  md5: e98b685998df1badbaf1245f67b909a3
   depends:
   - __glibc >=2.17,<3.0.a0
   - bzip2 >=1.0.8,<2.0a0
@@ -1103,11 +1103,11 @@ packages:
   license: EPL-2.0
   license_family: OTHER
   purls: []
-  size: 534400
-  timestamp: 1753922562463
-- conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-clp-1.17.10-hc03379b_2.conda
-  sha256: f01f26345329c4d084885eba87b5cc1e460ae1ad0ed111f4a0fd8601a5abe8aa
-  md5: 43c3982e03a30dd5f83a647bcfe060a2
+  size: 533284
+  timestamp: 1754137230937
+- conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-clp-1.17.10-hc03379b_3.conda
+  sha256: b4b3b0920654640adf73413abdb89da78c6452af96a46989bb374bbf56d41a0e
+  md5: 36a0b880feba1c1a14a37eb95b3d8dd6
   depends:
   - __glibc >=2.17,<3.0.a0
   - bzip2 >=1.0.8,<2.0a0
@@ -1127,11 +1127,11 @@ packages:
   license: EPL-2.0
   license_family: OTHER
   purls: []
-  size: 1151438
-  timestamp: 1753922635146
-- conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-osi-0.108.11-hf4fecb4_5.conda
-  sha256: ef3b047a820f40af0294f3cf8b207362d41299fd896c0f6f7371d22e1fdcdf66
-  md5: d65cacda964f72847b078f8feee79e8c
+  size: 1151752
+  timestamp: 1754133583925
+- conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-osi-0.108.11-hf4fecb4_7.conda
+  sha256: 87bb066bfcfd3b4a5bf0a7c6b189579e654bca93797b783a981fff45908e7230
+  md5: 7e0bd9c4fdac13b10bd0ae13b4d05bb4
   depends:
   - __glibc >=2.17,<3.0.a0
   - bzip2 >=1.0.8,<2.0a0
@@ -1150,11 +1150,11 @@ packages:
   license: EPL-2.0
   license_family: OTHER
   purls: []
-  size: 379367
-  timestamp: 1753917747416
-- conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-utils-2.11.12-h93d2bc8_3.conda
-  sha256: 9f8d4da6c422e4649a1d16a4bd71229f70897451da8610c5558fe0776561472f
-  md5: 878f27ef1cfe3bc36fa5f8fbe3d2eeca
+  size: 378777
+  timestamp: 1754101879279
+- conda: https://conda.anaconda.org/conda-forge/linux-64/coin-or-utils-2.11.12-h93d2bc8_5.conda
+  sha256: e42e29b730090db9f5a4f4e7c7e61ffd1e380e448c8e7ca55b56f88dcb127b20
+  md5: e7e3d5e66cc6867a4d5194432c312265
   depends:
   - __glibc >=2.17,<3.0.a0
   - bzip2 >=1.0.8,<2.0a0
@@ -1172,8 +1172,8 @@ packages:
   license: EPL-2.0
   license_family: OTHER
   purls: []
-  size: 664966
-  timestamp: 1753891776459
+  size: 663614
+  timestamp: 1754097458879
 - conda: https://conda.anaconda.org/conda-forge/noarch/colorama-0.4.6-pyhd8ed1ab_1.conda
   sha256: ab29d57dc70786c1269633ba3dff20288b81664d3ff8d21af995742e2bb03287
   md5: 962b9857ee8e7018c22f2776ffa0b2d7
@@ -1254,22 +1254,21 @@ packages:
   - pkg:pypi/connection-pool?source=hash-mapping
   size: 8331
   timestamp: 1608581999360
-- conda: https://conda.anaconda.org/conda-forge/linux-64/contourpy-1.3.3-py312hd9148b4_0.conda
-  sha256: 3ac7113709834ac1bbafe3d90bfbe26a943694a348f6947ffb26b87ab49d30e8
-  md5: 12f9dea0fc4d1ec50741a0dbb5e5e3e8
+- conda: https://conda.anaconda.org/conda-forge/linux-64/contourpy-1.3.3-py312hd9148b4_1.conda
+  sha256: d9cb7f97a184a383bf0c72e1fa83b983a1caa68d7564f4449a4de7c97df9cb3f
+  md5: e25ed6c2e3b1effedfe9cd10a15ca8d8
   depends:
   - __glibc >=2.17,<3.0.a0
   - libgcc >=14
   - libstdcxx >=14
-  - numpy >=1.23
+  - numpy >=1.25
   - python >=3.12,<3.13.0a0
   - python_abi 3.12.* *_cp312
   license: BSD-3-Clause
-  license_family: BSD
   purls:
-  - pkg:pypi/contourpy?source=hash-mapping
-  size: 292588
-  timestamp: 1753561158900
+  - pkg:pypi/contourpy?source=compressed-mapping
+  size: 291827
+  timestamp: 1754063770363
 - conda: https://conda.anaconda.org/conda-forge/noarch/cpython-3.12.11-py312hd8ed1ab_0.conda
   noarch: generic
   sha256: 7e7bc8e73a2f3736444a8564cbece7216464c00f0bc38e604b0c792ff60d621a
@@ -2033,7 +2032,7 @@ packages:
 - pypi: ./
   name: glymphopt
   version: 0.1.0
-  sha256: be1106b51fca2c5f89b8430eb6478f1dd32bd5f7c22c4f6f0cf61057a466d1bc
+  sha256: 972cec4f2ffe473f976117d25ad073d7fa5fd3484d9c10be083fd7d8d1b8fd02
   requires_python: '>=3.11'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/gmp-6.3.0-hac33072_2.conda
@@ -2063,10 +2062,10 @@ packages:
   - pkg:pypi/gmpy2?source=hash-mapping
   size: 213405
   timestamp: 1745509508879
-- pypi: /home/jorgen/gmri2fem
+- pypi: ./deps/gmri2fem
   name: gmri2fem
-  version: 0.2.4
-  sha256: e67cd81538b9c3eb8e01e1f16cc16dd74011e73223b1cff99d897f89c11d9d5d
+  version: 0.3.0
+  sha256: 82472af3d872f50c691ccd47cafa98212c468cb3a0dc0ba11a0c803c48451221
   requires_dist:
   - loguru
   - matplotlib
@@ -2084,7 +2083,7 @@ packages:
   - click
   - vtk
   - pyvista[all]
-  requires_python: '>=3.9,<3.13'
+  requires_python: '>=3.11,<3.13'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/gmsh-4.13.1-hccb25f3_1.conda
   sha256: 18700e7480c8829b1f6c69c497f04c99d1788d3634663bf174321488b5b088a7

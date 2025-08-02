@@ -70,7 +70,7 @@ class MRILoss:
         self.M = sparse_matrix_to_dolfin(M)
         self.Cd = [numpy_array_to_dolfin_vector(cdi) for cdi in Cd[1:]]
         self.M_ = [matrix_operator(self.M) for _ in range(4)]
-        self.norm = [np.sum(ci**2) for ci in Cd[1:]]
+        self.norm = [ci.dot(ci) for ci in Cd[1:]]
 
     def __call__(self, Ym):
         errs = (

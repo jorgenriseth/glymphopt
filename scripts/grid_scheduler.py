@@ -9,7 +9,7 @@ from glymphopt.param_utils import encode_param_dict
 
 
 def json_deserialize_history(d) -> dict[str, Any]:
-    return {"point": np.array(d["point"]), "value": np.float64(d["value"])}
+    return {"point": np.array(d["point"]), "value": np.float64(d["error"])}
 
 
 @click.command()
