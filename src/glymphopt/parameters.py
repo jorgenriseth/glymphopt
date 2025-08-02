@@ -81,7 +81,7 @@ def singlecomp_parameters(twocomp_parameters=None):
     eta = params["eta"]
     phi = n_e + n_p
     return {
-        "a": rho * (n_e + gamma * n_p) / phi,
+        "a": (n_e + gamma * n_p) / phi,
         "r": t_pb / phi,
         "k": (k_e + k_p) / phi,
         "phi": phi,

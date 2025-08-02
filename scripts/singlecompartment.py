@@ -1,21 +1,17 @@
 import click
-import numpy as np
 import dolfin as df
 import pantarei as pr
 
-from dolfin import inner, grad
-
 
 from glymphopt.coefficientvectors import CoefficientVector
-from glymphopt.datageneration import BoundaryConcentration
 from glymphopt.interpolation import LinearDataInterpolator
 from glymphopt.io import read_mesh, read_function_data, read_augmented_dti
 from glymphopt.parameters import (
     singlecomp_parameters,
     default_twocomp_parameters,
 )
-from glymphopt.timestepper import TimeStepper
 from glymphopt.singlecompartment import SingleCompartmentInverseProblem
+from glymphopt.utils import with_suffix
 
 
 @click.command()
@@ -52,6 +48,20 @@ def main(input, output, visual, **kwargs):
     with df.HDF5File(domain.mpi_comm(), output, "w") as hdf:
         for ti, Ym_i in zip(td, Ym):
             pr.write_checkpoint(hdf, Ym_i, "concentration", t=ti)
+
+    if visual:
+        with df.XDMFFile(
+            domain.mpi_comm(),
+            str(with_suffix(output, "_measurements.xdmf")),
+        ) as xdmf:
+            for ti, Ym_i in zip(td, Ym):
+                xdmf.write(Ym_i, t=ti)
+        with df.XDMFFile(
+            domain.mpi_comm(),
+            str(with_suffix(output, "_all.xdmf")),
+        ) as xdmf:
+            for ti, Yi in zip(problem.timestepper.vector(), Y):
+                xdmf.write(Yi, t=ti)
 
 
 if __name__ == "__main__":

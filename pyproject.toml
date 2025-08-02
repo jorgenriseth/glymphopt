@@ -11,9 +11,9 @@ requires = ["hatchling"]
 
 [tool.pixi.workspace]
 channels = [
+  "conda-forge/label/fenics-dev",
   "conda-forge",
   "jorgenriseth",
-  "conda-forge/label/fenics-dev",
   "bioconda",
   "https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public",
 ]
@@ -21,6 +21,7 @@ platforms = ["linux-64"]
 
 [tool.pixi.pypi-dependencies]
 glymphopt = { path = ".", editable = true }
+gmri2fem = { path = "/home/jorgen/gmri2fem", editable = true }
 
 [tool.pixi.tasks]
 
@@ -34,13 +35,15 @@ matplotlib = "*"
 scipy = "*"
 scikit-image = "*"
 jupyter = "*"
-panta-rhei = "*"
+panta-rhei = ">=0.7"
 mpi4py = "*"
 openmpi = "*"
 snakemake-executor-plugin-cluster-generic = "*"
-pyvista = "*"
+pyvista = "<0.45"
 trame = "*"
 tqdm = "*"
 loguru = "*"
 meshio = "*"
-setuptools = "<81"
+setuptools = "<80"
+notebook = "<7"
+jupyter_server = "<2"
