@@ -85,6 +85,7 @@ Orchestrated per-subject via the `Snakefile` (subjects listed in `subjects.txt`)
 | `diffusion_reaction_gridsearch.py`, `twocomp_gridsearch.py` | Core adaptive grid search per subject; outputs the parameter/loss CSVs. |
 | `singlecompartment.py`, `twocompartment.py` | Forward solve at given (typically optimal) parameters. |
 | `singlecompartment_convergence.py`, `twocompartment_convergence.py` | Numerical convergence study (varying timestep/mesh resolution), tracking total tracer amount and measurement-time error — produces the article's convergence figure. |
+| `singlecompartment_amount.py`, `plot_amount_mesh.py`, `run_amount_sweep.sh` | Export mesh-amount CSVs, plot comparisons, and run an `a` sweep. See [docs/plot_amount_mesh.md](docs/plot_amount_mesh.md). |
 | `singlecompartment_eval_point.py`, `twocompartment_eval_point.py` | Evaluate the loss at a single given parameter point (used for cluster-parallelized grid search). |
 | `collect_grid_value.py`, `collect_mesh_data.py` | Collect per-point evaluations / per-subject mesh+data bundles produced by cluster jobs into a single file. |
 | `voxel_center_minimization.py` | Builds the mesh-to-MRI-voxel evaluation matrix and reconstructs mesh functions from MRI voxel data (`create_evaluation_matrix`, `map_mri_to_mesh`). |

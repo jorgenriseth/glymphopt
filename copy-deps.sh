@@ -8,7 +8,7 @@ cat depfiles.txt | while read -r file; do
             mri_processed_data/${subject}/concentrations \
             mri_processed_data/${subject}/segmentations 
 
-        subjectfile=$(echo $file | sed s/{subject}/sub-01/g);
+        subjectfile=$(echo $file | sed "s/{subject}/${subject}/g");
         echo rsync -vL $SOURCEDIR/$subjectfile ./$subjectfile
 
         rsync -L $SOURCEDIR/$subjectfile ./$subjectfile

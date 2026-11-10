@@ -13,6 +13,7 @@ mri_processed_data/fastsurfer/{subject}/mri/wmparc.mgz
 mri_processed_data/fastsurfer/{subject}/mri/aparc+aseg.mgz
 mri_processed_data/{subject}/segmentations/{subject}_seg-csf_binary.nii.gz
 mri_processed_data/{subject}/segmentations/{subject}_seg-aparc+aseg_refined.nii.gz
+mri_processed_data/{subject}/segmentations/{subject}_seg-aseg_refined.nii.gz
 mri_processed_data/{subject}/segmentations/{subject}_seg-wmparc_refined.nii.gz
 mri_processed_data/{subject}/registered/{subject}_ses-01_dDTI_FA_registered.nii.gz
 mri_processed_data/{subject}/registered/{subject}_ses-01_dDTI_MD_registered.nii.gz
